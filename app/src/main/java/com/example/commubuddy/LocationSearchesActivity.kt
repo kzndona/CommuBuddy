@@ -8,9 +8,13 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.android.libraries.places.api.net.kotlin.fetchPlaceRequest
 
 class LocationSearchesActivity : AppCompatActivity() {
 
@@ -58,10 +62,17 @@ class LocationSearchesActivity : AppCompatActivity() {
 
         // Set up Adapter
         adapter = PlacePredictionAdapter(predictions) { prediction ->
-            val resultIntent = Intent()
-            resultIntent.putExtra("selected_place", prediction)
-            setResult(RESULT_OK, resultIntent)
-            finish()
+            fetchPlaceDetails(prediction.placeId) { latLng ->
+                val resultIntent = Intent()
+                resultIntent.putExtra("selected_place", PlacePredictionModel(
+                    placeId = prediction.placeId,
+                    primaryText = prediction.primaryText,
+                    secondaryText = prediction.secondaryText,
+                    latLng = latLng
+                ))
+                setResult(RESULT_OK, resultIntent)
+                finish()
+            }
         }
         recyclerView.adapter = adapter
     }
@@ -86,6 +97,21 @@ class LocationSearchesActivity : AppCompatActivity() {
                     )
                 }
                 adapter.notifyDataSetChanged()
+            }
+            .addOnFailureListener { exception ->
+                Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun fetchPlaceDetails(placeId: String, callback: (LatLng) -> Unit) {
+        val placeFields = listOf(Place.Field.LAT_LNG)
+        val request = FetchPlaceRequest.newInstance(placeId, placeFields)
+
+        placesClient.fetchPlace(request)
+            .addOnSuccessListener { response ->
+                val place = response.place
+                val latLng = place.latLng
+                latLng?.let { callback(it) }
             }
             .addOnFailureListener { exception ->
                 Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show()

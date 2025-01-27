@@ -9,16 +9,19 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
+    private lateinit var map: GoogleMap
     private lateinit var searchLocationButton: Button
 
     private lateinit var destinationID: String
     private lateinit var destinationName: String
     private lateinit var destinationAddress: String
     private lateinit var destinationLatLng: LatLng
+    private var destinationMarker: Marker? = null
     private lateinit var originLatLng: LatLng
 
     private val searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -28,6 +31,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 destinationID = it.placeId
                 destinationName = it.primaryText
                 destinationAddress = it.secondaryText
+                destinationLatLng = it.latLng!!
+                setDestination(destinationLatLng)
             }
         }
     }
@@ -49,10 +54,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
-    googleMap.addMarker(
-        MarkerOptions()
-            .position(LatLng(0.0, 0.0))
-            .title("Marker")
-        )
+        map = googleMap
+    }
+
+    fun setDestination(destinationLatLng: LatLng) {
+        destinationMarker?.remove()
+        destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
     }
 }
