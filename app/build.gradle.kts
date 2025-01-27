@@ -20,6 +20,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
+    // For Place Model
+    id("kotlin-parcelize")
 }
 
 android {
@@ -69,6 +71,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.appcompat)
+    implementation(libs.places)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -78,4 +81,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     // Maps SDK for Android
     implementation("com.google.android.gms:play-services-maps:19.0.0")
+    dependencies {
+        implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.0"))
+        implementation("com.google.android.libraries.places:places:3.5.0")
+    }
 }
