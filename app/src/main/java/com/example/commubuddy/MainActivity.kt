@@ -1,10 +1,15 @@
 package com.example.commubuddy
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Button
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
@@ -53,6 +58,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        checkLocationPermission()
+    }
+
     override fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
     }
@@ -60,5 +71,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     fun setDestination(destinationLatLng: LatLng) {
         destinationMarker?.remove()
         destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
+    }
+
+    fun checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            DialogHelper.showPermissionDialog(activity = this, onPositiveAction = {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", packageName, null)
+                }
+                startActivity(intent)
+            } )
+        }
     }
 }
