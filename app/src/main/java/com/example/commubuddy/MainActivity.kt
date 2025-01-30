@@ -1,15 +1,11 @@
 package com.example.commubuddy
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.Button
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
@@ -19,15 +15,21 @@ import com.google.android.gms.maps.model.MarkerOptions
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    private lateinit var map: GoogleMap
+    lateinit var map: GoogleMap
     private lateinit var searchLocationButton: Button
+    private lateinit var startAlarmButton: Button
 
-    private lateinit var destinationID: String
-    private lateinit var destinationName: String
-    private lateinit var destinationAddress: String
-    private lateinit var destinationLatLng: LatLng
+    private lateinit var locationHelper: LocationHelper
+
+    private var destinationID: String? = null
+    private var destinationName: String? = null
+    private var destinationAddress: String? = null
+    private var destinationLatLng: LatLng? = null
     private var destinationMarker: Marker? = null
-    private lateinit var originLatLng: LatLng
+    private var originLatLng: LatLng? = null
+    private var originMarker: Marker? = null
+    private var isFirstLaunch: Boolean = true
+    private var isAlarm: Boolean = false
 
     private val searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -37,7 +39,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 destinationName = it.primaryText
                 destinationAddress = it.secondaryText
                 destinationLatLng = it.latLng!!
-                setDestination(destinationLatLng)
+                setDestination(destinationLatLng!!)
             }
         }
     }
@@ -56,32 +58,64 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val intent = Intent(this, LocationSearchesActivity::class.java)
             searchActivityResultLauncher.launch(intent)
         }
+        startAlarmButton = findViewById(R.id.button_main_start_alarm)
+        startAlarmButton.setOnClickListener {
+            // Intent to locations searches activity
+            if (isAlarm) {
+                cancelAlarm()
+            } else startAlarm()
+        }
     }
 
     override fun onResume() {
         super.onResume()
 
-        checkLocationPermission()
+        if (!isFirstLaunch) {
+            locationHelper.checkLocationPermission()
+        }
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
+        if (isFirstLaunch) {
+            initializeLocationHelper()
+        }
     }
 
-    fun setDestination(destinationLatLng: LatLng) {
+    private fun initializeLocationHelper() {
+        locationHelper = LocationHelper(this, this)
+        locationHelper.checkLocationPermission()
+        isFirstLaunch = false
+    }
+
+    private fun setDestination(destinationLatLng: LatLng) {
         destinationMarker?.remove()
         destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
     }
 
-    fun checkLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
-            DialogHelper.showPermissionDialog(activity = this, onPositiveAction = {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", packageName, null)
-                }
-                startActivity(intent)
-            } )
+    private fun startAlarm() {
+        // Verify if origin and destination is not empty
+        originLatLng = locationHelper.userLatLng
+        if (originLatLng == null) {
+            Toast.makeText(this, "Unable to get user location.", Toast.LENGTH_SHORT).show()
+            return
         }
+        if (destinationLatLng == null) {
+            Toast.makeText(this, "Unable to get destination coordinates.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        originMarker = map.addMarker(MarkerOptions().position(originLatLng!!))
+        setDestination(destinationLatLng!!)
+
+        startAlarmButton.text = "Cancel Alarm"
+        isAlarm = true
+    }
+
+    private fun cancelAlarm() {
+        originLatLng = null
+        originMarker?.remove()
+        destinationMarker?.remove()
+        startAlarmButton.text = "Start Alarm"
+        isAlarm = false
     }
 }
