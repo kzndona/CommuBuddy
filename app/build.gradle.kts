@@ -84,4 +84,5 @@ dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.0"))
     implementation("com.google.android.libraries.places:places:3.5.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0")  // Adjust version if needed
+    implementation("com.google.maps.android:android-maps-utils:2.2.0")
 }

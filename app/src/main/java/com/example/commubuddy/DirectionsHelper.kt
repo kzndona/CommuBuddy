@@ -1,6 +1,9 @@
 package com.example.commubuddy
 
+import android.util.Log
 import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.PolyUtil
+import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -29,5 +32,30 @@ class DirectionsHelper {
             e.printStackTrace()
             null
         }
+    }
+
+    fun parseRoute(jsonString: String): MutableList<LatLng>? {
+        val routePoints = mutableListOf<LatLng>()
+        try {
+            val jsonObject = JSONObject(jsonString)
+            val routes = jsonObject.getJSONArray("routes")
+
+            Log.e("CMBDY", routes.length().toString())
+            if (routes.length() == 0) return null
+
+            val legs = routes.getJSONObject(0).getJSONArray("legs")
+            val steps = legs.getJSONObject(0).getJSONArray("steps")
+
+            for (i in 0 until steps.length()) {
+                val polyline = steps.getJSONObject(i)
+                    .getJSONObject("polyline")
+                    .getString("points")
+                routePoints.addAll(PolyUtil.decode(polyline))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+        return routePoints
     }
 }

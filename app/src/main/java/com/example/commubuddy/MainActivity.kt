@@ -2,6 +2,7 @@ package com.example.commubuddy
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +13,8 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.Polyline
+import com.google.android.gms.maps.model.PolylineOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,6 +35,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var destinationMarker: Marker? = null
     private var originLatLng: LatLng? = null
     private var originMarker: Marker? = null
+    private var route: Polyline? = null
     private var isFirstLaunch: Boolean = true
     private var isAlarm: Boolean = false
 
@@ -119,9 +123,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             if (response != null) {
-                Toast.makeText(this@MainActivity, "Success", Toast.LENGTH_SHORT).show()
-                startAlarmButton.text = "Cancel Alarm"
-                isAlarm = true
+                Log.e("CMBDY", response.toString())
+                val routePoints = directionsHelper.parseRoute(response)
+                if (routePoints != null) {
+                    drawRoute(routePoints)
+                    startAlarmButton.text = "Cancel Alarm"
+                    isAlarm = true
+                } else {
+                    Toast.makeText(this@MainActivity, "Failed to parse directions", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 Toast.makeText(this@MainActivity, "Failed to fetch directions", Toast.LENGTH_SHORT).show()
             }
@@ -132,7 +142,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         originLatLng = null
         originMarker?.remove()
         destinationMarker?.remove()
+        route?.remove()
+        route = null
         startAlarmButton.text = "Start Alarm"
         isAlarm = false
+    }
+
+    private fun drawRoute(routePoints: List<LatLng>) {
+        Toast.makeText(this, routePoints.toString(), Toast.LENGTH_SHORT).show()
+        val polylineOptions = PolylineOptions().apply {
+            addAll(routePoints)
+            color(android.graphics.Color.BLUE)
+            width(10f)
+        }
+        route = map.addPolyline(polylineOptions)
     }
 }
