@@ -12,6 +12,10 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -107,8 +111,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         originMarker = map.addMarker(MarkerOptions().position(originLatLng!!))
         setDestination(destinationLatLng!!)
 
-        startAlarmButton.text = "Cancel Alarm"
-        isAlarm = true
+        CoroutineScope(Dispatchers.Main).launch {
+            val directionsHelper = DirectionsHelper()
+            val urlString = directionsHelper.buildDirectionsURL(originLatLng!!, destinationLatLng!!)
+            val response = withContext(Dispatchers.IO) {
+                directionsHelper.fetchDirectionsData(urlString)
+            }
+
+            if (response != null) {
+                Toast.makeText(this@MainActivity, "Success", Toast.LENGTH_SHORT).show()
+                startAlarmButton.text = "Cancel Alarm"
+                isAlarm = true
+            } else {
+                Toast.makeText(this@MainActivity, "Failed to fetch directions", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun cancelAlarm() {
