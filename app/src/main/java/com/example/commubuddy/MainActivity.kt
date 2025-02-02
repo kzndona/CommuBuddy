@@ -1,15 +1,21 @@
 package com.example.commubuddy
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
-import android.util.Log
+import android.view.View
 import android.widget.Button
+import android.widget.SeekBar
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.Circle
+import com.google.android.gms.maps.model.CircleOptions
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
@@ -25,6 +31,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     lateinit var map: GoogleMap
     private lateinit var searchLocationButton: Button
     private lateinit var startAlarmButton: Button
+    private lateinit var ringDistanceSeekBar: SeekBar
 
     private lateinit var locationHelper: LocationHelper
 
@@ -35,9 +42,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var destinationMarker: Marker? = null
     private var originLatLng: LatLng? = null
     private var originMarker: Marker? = null
+    private var ringDistance: Double? = null
     private var route: Polyline? = null
+    private var mapCircle: Circle? = null
+
     private var isFirstLaunch: Boolean = true
-    private var isAlarm: Boolean = false
+    var isAlarm: Boolean = false
 
     private val searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -66,6 +76,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val intent = Intent(this, LocationSearchesActivity::class.java)
             searchActivityResultLauncher.launch(intent)
         }
+        ringDistanceSeekBar = findViewById(R.id.seekbar_main_ring_distance)
+        ringDistanceSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val scaledProgress = 50 + (progress / 100.0) * (2000 - 50)
+                updateMapCircle(scaledProgress)
+                ringDistance = scaledProgress
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                return
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                return
+            }
+        })
+        ringDistanceSeekBar.isEnabled = false
         startAlarmButton = findViewById(R.id.button_main_start_alarm)
         startAlarmButton.setOnClickListener {
             // Intent to locations searches activity
@@ -73,6 +100,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 cancelAlarm()
             } else startAlarm()
         }
+        startAlarmButton.isEnabled = false
     }
 
     override fun onResume() {
@@ -88,6 +116,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (isFirstLaunch) {
             initializeLocationHelper()
         }
+        googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition(
+            LatLng(14.59,121.04),
+            10.2f, 0f, 0f
+        )))
     }
 
     private fun initializeLocationHelper() {
@@ -99,10 +131,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun setDestination(destinationLatLng: LatLng) {
         destinationMarker?.remove()
         destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
+        mapCircle?.remove()
+        mapCircle = null
+        updateMapCircle(50.0)
+        ringDistanceSeekBar.isEnabled = true
+        startAlarmButton.isEnabled = true
     }
 
     private fun startAlarm() {
-        // Verify if origin and destination is not empty
         originLatLng = locationHelper.userLatLng
         if (originLatLng == null) {
             Toast.makeText(this, "Unable to get user location.", Toast.LENGTH_SHORT).show()
@@ -112,8 +148,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             Toast.makeText(this, "Unable to get destination coordinates.", Toast.LENGTH_SHORT).show()
             return
         }
+
         originMarker = map.addMarker(MarkerOptions().position(originLatLng!!))
-        setDestination(destinationLatLng!!)
 
         CoroutineScope(Dispatchers.Main).launch {
             val directionsHelper = DirectionsHelper()
@@ -123,12 +159,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             if (response != null) {
-                Log.e("CMBDY", response.toString())
                 val routePoints = directionsHelper.parseRoute(response)
                 if (routePoints != null) {
                     drawRoute(routePoints)
                     startAlarmButton.text = "Cancel Alarm"
                     isAlarm = true
+                    searchLocationButton.visibility = View.INVISIBLE
+                    ringDistanceSeekBar.visibility = View.INVISIBLE
                 } else {
                     Toast.makeText(this@MainActivity, "Failed to parse directions", Toast.LENGTH_SHORT).show()
                 }
@@ -141,20 +178,39 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun cancelAlarm() {
         originLatLng = null
         originMarker?.remove()
-        destinationMarker?.remove()
         route?.remove()
-        route = null
         startAlarmButton.text = "Start Alarm"
         isAlarm = false
+        searchLocationButton.visibility = View.VISIBLE
+        ringDistanceSeekBar.visibility = View.VISIBLE
     }
 
     private fun drawRoute(routePoints: List<LatLng>) {
-        Toast.makeText(this, routePoints.toString(), Toast.LENGTH_SHORT).show()
         val polylineOptions = PolylineOptions().apply {
             addAll(routePoints)
-            color(android.graphics.Color.BLUE)
+            color(Color.BLUE)
             width(10f)
+            zIndex(50f)
         }
         route = map.addPolyline(polylineOptions)
+        if (mapCircle != null && ringDistance != null) {
+            updateMapCircle(ringDistance!!)
+        }
+    }
+
+    private fun updateMapCircle(radius: Double) {
+        val center = destinationLatLng?: return
+        if (mapCircle == null) {
+            mapCircle = map.addCircle(
+                CircleOptions()
+                    .center(center)
+                    .radius(radius)
+                    .strokeWidth(1f)
+                    .fillColor(Color.argb(.2f,0f,0f,255f))
+                    .zIndex(10f)
+            )
+        } else {
+            mapCircle!!.radius = radius
+        }
     }
 }

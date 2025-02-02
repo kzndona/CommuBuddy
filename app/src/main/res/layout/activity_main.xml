@@ -21,15 +21,22 @@
             android:id="@+id/button_main_search_location"
             android:layout_width="match_parent"
             android:layout_height="72dp"
-            android:layout_marginHorizontal="20dp"
+            android:layout_marginHorizontal="40dp"
             android:layout_marginVertical="8dp"
             android:text="Search Location"/>
+
+        <SeekBar
+            android:id="@+id/seekbar_main_ring_distance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="40dp"
+            android:layout_marginVertical="8dp" />
 
         <Button
             android:id="@+id/button_main_start_alarm"
             android:layout_width="match_parent"
             android:layout_height="72dp"
-            android:layout_marginHorizontal="20dp"
+            android:layout_marginHorizontal="40dp"
             android:layout_marginVertical="8dp"
             android:text="Start Alarm"/>
 

@@ -15,11 +15,13 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
 
 class LocationHelper (private val context: Context, private val activity: MainActivity) {
 
     var userLatLng: LatLng? = null
+    var isLaunch: Boolean = true
 
     fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -61,6 +63,13 @@ class LocationHelper (private val context: Context, private val activity: MainAc
             override fun onLocationResult(locationResult: LocationResult) {
                 for (location in locationResult.locations) {
                     userLatLng = LatLng(location.latitude, location.longitude)
+                    if (isLaunch) {
+                        activity.map.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng!!,15.2f))
+                        isLaunch = false
+                    }
+                    if (activity.isAlarm) {
+                        // TODO Trigger alarm when inside radius
+                    }
                 }
             }
         }, Looper.getMainLooper())
