@@ -3,12 +3,15 @@ package com.example.commubuddy
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.example.commubuddy.Location.LocationBackgroundHelper
+import com.example.commubuddy.Location.LocationMainHelper
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -30,24 +33,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     lateinit var map: GoogleMap
     private lateinit var searchLocationButton: Button
-    private lateinit var startAlarmButton: Button
+    lateinit var startAlarmButton: Button
     private lateinit var ringDistanceSeekBar: SeekBar
 
-    private lateinit var locationHelper: LocationHelper
+    private lateinit var locationMainHelper: LocationMainHelper
 
     private var destinationID: String? = null
     private var destinationName: String? = null
     private var destinationAddress: String? = null
-    private var destinationLatLng: LatLng? = null
+    var destinationLatLng: LatLng? = null
     private var destinationMarker: Marker? = null
     private var originLatLng: LatLng? = null
     private var originMarker: Marker? = null
-    private var ringDistance: Double? = null
+    var ringDistance: Double? = null
     private var route: Polyline? = null
     private var mapCircle: Circle? = null
 
     private var isFirstLaunch: Boolean = true
-    var isAlarm: Boolean = false
+    var isAlarmActive: Boolean = false
 
     private val searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -96,7 +99,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         startAlarmButton = findViewById(R.id.button_main_start_alarm)
         startAlarmButton.setOnClickListener {
             // Intent to locations searches activity
-            if (isAlarm) {
+            if (isAlarmActive) {
                 cancelAlarm()
             } else startAlarm()
         }
@@ -107,7 +110,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onResume()
 
         if (!isFirstLaunch) {
-            locationHelper.checkLocationPermission()
+            stopLocationBackgroundService()
+            locationMainHelper.checkLocationPermission()
+        }
+
+    }
+
+    override fun onPause() {
+        super.onPause()
+
+        if (isAlarmActive) {
+            locationMainHelper.stopLocationUpdates()
+            startLocationBackgroundService()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        if (isAlarmActive) {
+            locationMainHelper.stopLocationUpdates()
+            startLocationBackgroundService()
         }
     }
 
@@ -123,8 +146,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun initializeLocationHelper() {
-        locationHelper = LocationHelper(this, this)
-        locationHelper.checkLocationPermission()
+        locationMainHelper = LocationMainHelper(this, this)
+        locationMainHelper.checkLocationPermission()
         isFirstLaunch = false
     }
 
@@ -139,7 +162,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun startAlarm() {
-        originLatLng = locationHelper.userLatLng
+        originLatLng = locationMainHelper.userLatLng
         if (originLatLng == null) {
             Toast.makeText(this, "Unable to get user location.", Toast.LENGTH_SHORT).show()
             return
@@ -163,7 +186,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (routePoints != null) {
                     drawRoute(routePoints)
                     startAlarmButton.text = "Cancel Alarm"
-                    isAlarm = true
+                    isAlarmActive = true
+                    locationMainHelper.hasAlarmTriggered = false
                     searchLocationButton.visibility = View.INVISIBLE
                     ringDistanceSeekBar.visibility = View.INVISIBLE
                 } else {
@@ -180,7 +204,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         originMarker?.remove()
         route?.remove()
         startAlarmButton.text = "Start Alarm"
-        isAlarm = false
+        isAlarmActive = false
         searchLocationButton.visibility = View.VISIBLE
         ringDistanceSeekBar.visibility = View.VISIBLE
     }
@@ -212,5 +236,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         } else {
             mapCircle!!.radius = radius
         }
+    }
+
+    private fun startLocationBackgroundService() {
+        val intent = Intent(this, LocationBackgroundHelper::class.java)
+        this.startForegroundService(intent)
+        Log.d("LocationService", "Background service called")
+    }
+
+    private fun stopLocationBackgroundService() {
+        val intent = Intent(this, LocationBackgroundHelper::class.java)
+        this.stopService(intent)
     }
 }
