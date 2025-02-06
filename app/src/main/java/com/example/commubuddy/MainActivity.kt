@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                 AlarmModel.RINGING -> dismissAlarm()
             }
         }
+        binding.frameMainAlarmBanner.visibility = View.INVISIBLE
         binding.seekbarMainRingDistance.isEnabled = false
         binding.buttonMainStartAlarm.isEnabled = false
     }
@@ -149,10 +150,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
 
     private fun dismissAlarm() {
         cancelAlarm()
+        binding.frameMainAlarmBanner.visibility = View.INVISIBLE
     }
 
     fun showAlarm() {
         binding.buttonMainStartAlarm.text = "Stop Alarm"
+        binding.frameMainAlarmBanner.visibility = View.VISIBLE
         AlarmModel.alarmStatus = AlarmModel.RINGING
     }
 
