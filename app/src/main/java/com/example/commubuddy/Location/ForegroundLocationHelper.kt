@@ -28,7 +28,6 @@ class ForegroundLocationHelper (
     private val listener: LocationUpdateListener
 ) {
     var userLatLng: LatLng? = null
-    private var firstLaunch: Boolean = true
     private var locationCallback: LocationCallback? = null
     private val fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(activity)
 
@@ -70,10 +69,7 @@ class ForegroundLocationHelper (
                 for (location in locationResult.locations) {
                     userLatLng = LatLng(location.latitude, location.longitude)
 
-                    if (firstLaunch) {
-                        listener.onLocationUpdated(userLatLng!!)
-                        firstLaunch = false
-                    }
+                    listener.onFirstLocationUpdated(userLatLng!!)
 
                     if (AlarmModel.alarmStatus == AlarmModel.ON || AlarmModel.alarmStatus == AlarmModel.RINGING) {
                         val results = FloatArray(1)
@@ -85,6 +81,7 @@ class ForegroundLocationHelper (
                             results
                         )
                         val distanceBetweenResult = results[0]
+                        listener.onShowAlarmDistanceToDestination(distanceBetweenResult.toInt())
 
                         if (distanceBetweenResult <= AlarmModel.ringDistance!! && AlarmModel.alarmStatus != AlarmModel.RINGING) {
                             activity.showAlarm()

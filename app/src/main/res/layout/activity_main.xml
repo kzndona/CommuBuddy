@@ -1,76 +1,112 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
+<androidx.drawerlayout.widget.DrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/layout_main_origin"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/layout_main_drawer"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <fragment
-        android:name="com.google.android.gms.maps.SupportMapFragment"
-        android:id="@+id/map"
+    <RelativeLayout
+        android:id="@+id/layout_main_origin"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_alignParentTop="true">
-
-        <FrameLayout
-            android:id="@+id/frame_main_alarm_banner"
+        android:layout_height="match_parent">
+    
+        <fragment
+            android:name="com.google.android.gms.maps.SupportMapFragment"
+            android:id="@+id/map"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginHorizontal="24dp"
-            android:layout_marginVertical="24dp"
-            android:paddingHorizontal="24dp"
-            android:paddingVertical="24dp"
-            android:background="@color/black">
-
-            <TextView
-                android:id="@+id/text_main_alarm_distance"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingVertical="24sp"
-                android:text="Xm"
-                android:textSize="56sp"
-                android:textColor="@color/white"
-                android:textStyle="bold"
-                android:layout_gravity="center"/>
-
-        </FrameLayout>
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_alignParentBottom="true">
-
-        <Button
-            android:id="@+id/button_main_search_location"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:layout_marginHorizontal="40dp"
-            android:layout_marginVertical="8dp"
-            android:text="Search Location"/>
-
-        <SeekBar
-            android:id="@+id/seekbar_main_ring_distance"
+            android:layout_height="match_parent"/>
+    
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="40dp"
-            android:layout_marginVertical="8dp" />
+            android:orientation="vertical"
+            android:layout_alignParentTop="true">
+    
+            <FrameLayout
+                android:id="@+id/frame_main_alarm_banner"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="24dp"
+                android:layout_marginVertical="24dp"
+                android:paddingHorizontal="24dp"
+                android:paddingVertical="24dp"
+                android:background="@color/black"
+                tools:ignore="UselessParent">
+    
+                <TextView
+                    android:id="@+id/text_main_alarm_distance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="24sp"
+                    android:text="Xm"
+                    android:textSize="56sp"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:layout_gravity="center"/>
+    
+            </FrameLayout>
+    
+        </LinearLayout>
 
-        <Button
-            android:id="@+id/button_main_start_alarm"
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_main"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="end|bottom"
+            android:layout_margin="16dp"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:contentDescription="Open Navigation Drawer"/>
+
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:layout_marginHorizontal="40dp"
-            android:layout_marginVertical="8dp"
-            android:text="Start Alarm"/>
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_alignParentBottom="true">
+    
+            <Button
+                android:id="@+id/button_main_search_location"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_marginHorizontal="40dp"
+                android:layout_marginVertical="8dp"
+                android:text="Search Location"/>
+    
+            <Button
+                android:id="@+id/button_main_ringtone_picker"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_marginHorizontal="40dp"
+                android:layout_marginVertical="8dp"
+                android:text="Choose Ringtone"/>
+    
+            <SeekBar
+                android:id="@+id/seekbar_main_ring_distance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="40dp"
+                android:layout_marginVertical="8dp" />
+    
+            <Button
+                android:id="@+id/button_main_start_alarm"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_marginHorizontal="40dp"
+                android:layout_marginVertical="8dp"
+                android:text="Start Alarm"/>
+    
+        </LinearLayout>
+    
+    </RelativeLayout>
 
-    </LinearLayout>
+    <!-- The navigation drawer (menu) -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigationView"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@android:color/white"
+        app:menu="@menu/drawer_main_side_menu"/>
 
-</RelativeLayout>
+</androidx.drawerlayout.widget.DrawerLayout>

@@ -2,13 +2,21 @@ package com.example.commubuddy
 
 import android.content.Intent
 import android.graphics.Color
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.widget.SeekBar
 import android.widget.Toast
+import android.widget.Toolbar
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import com.example.commubuddy.Direction.DirectionsHelper
 import com.example.commubuddy.Interfaces.LocationUpdateListener
 import com.example.commubuddy.Location.ForegroundLocationHelper
@@ -27,15 +35,16 @@ import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
+import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.log
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateListener {
 
     lateinit var map: GoogleMap
-
     private var destinationMarker: Marker? = null
     private var route: Polyline? = null
     private var mapCircle: Circle? = null
@@ -44,7 +53,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     private lateinit var searchActivityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var binding: ActivityMainBinding
 
+    private val REQUEST_CODE_RINGTONE: Int = 1001
+    private var mediaPlayer: MediaPlayer? = null
     private var isFirstLaunch: Boolean = true
+    private var isFirstUpdate: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +66,29 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+        binding.fabMain.setOnClickListener {
+            if (binding.layoutMainDrawer.isDrawerOpen(GravityCompat.START)) {
+                binding.layoutMainDrawer.closeDrawer(GravityCompat.START)
+            } else {
+                binding.layoutMainDrawer.openDrawer(GravityCompat.START)
+            }
+        }
+        binding.navigationView.setNavigationItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.menu_history -> {
+                    Toast.makeText(this, "History clicked", Toast.LENGTH_SHORT).show()
+                }
+                R.id.menu_bookmarks -> {
+                    Toast.makeText(this, "Bookmarks clicked", Toast.LENGTH_SHORT).show()
+                }
+                R.id.menu_themes -> {
+                    Toast.makeText(this, "Themes clicked", Toast.LENGTH_SHORT).show()
+                }
+            }
+            binding.layoutMainDrawer.closeDrawer(GravityCompat.START) // Close drawer after item click
+            true
+        }
 
         setUpSearchLauncher()
 
@@ -75,6 +110,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                 AlarmModel.OFF -> startAlarm()
                 AlarmModel.RINGING -> dismissAlarm()
             }
+        }
+        binding.buttonMainRingtonePicker.setOnClickListener {
+            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Alarm Ringtone")
+
+                // Load the previously selected ringtone (if any)
+                val savedUri = getSavedRingtoneUri()
+                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, savedUri)
+            }
+            startActivityForResult(intent, REQUEST_CODE_RINGTONE)
         }
         binding.frameMainAlarmBanner.visibility = View.INVISIBLE
         binding.seekbarMainRingDistance.isEnabled = false
@@ -151,12 +197,29 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     private fun dismissAlarm() {
         cancelAlarm()
         binding.frameMainAlarmBanner.visibility = View.INVISIBLE
+
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
     fun showAlarm() {
         binding.buttonMainStartAlarm.text = "Stop Alarm"
         binding.frameMainAlarmBanner.visibility = View.VISIBLE
         AlarmModel.alarmStatus = AlarmModel.RINGING
+
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+
+        val ringtoneUri: Uri = getSavedRingtoneUri() ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+
+        mediaPlayer = MediaPlayer().apply {
+            setDataSource(this@MainActivity, ringtoneUri)
+            setAudioStreamType(AudioManager.STREAM_ALARM)
+            isLooping = true
+            prepare()
+            start()
+        }
     }
 
     private fun setDestination(destinationLatLng: LatLng) {
@@ -205,8 +268,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         isFirstLaunch = false
     }
 
-    override fun onLocationUpdated(location: LatLng) {
-        map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.2f))
+    override fun onFirstLocationUpdated(location: LatLng) {
+        if (isFirstUpdate) {
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.2f))
+            isFirstUpdate = false
+        }
+    }
+
+    override fun onShowAlarmDistanceToDestination(distance: Int) {
+        binding.textMainAlarmDistance.text = "${distance}m"
     }
 
     private fun setUpSearchLauncher() {
@@ -221,6 +291,35 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                     setDestination(AlarmModel.destinationLatLng!!)
                 }
             }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == REQUEST_CODE_RINGTONE && resultCode == RESULT_OK) {
+            val ringtoneUri: Uri? = data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (ringtoneUri != null) { saveRingtoneUri(ringtoneUri) }
+        }
+    }
+
+    private fun saveRingtoneUri(uri: Uri) {
+        val sharedPreferences = getSharedPreferences("AlarmPrefs", MODE_PRIVATE)
+        sharedPreferences.edit().putString("ringtone_uri", uri.toString()).apply()
+    }
+
+    private fun getSavedRingtoneUri(): Uri? {
+        val sharedPreferences = getSharedPreferences("AlarmPrefs", MODE_PRIVATE)
+        val uriString = sharedPreferences.getString("ringtone_uri", null)
+        return uriString?.let { Uri.parse(it) }
+    }
+
+    // Handle back button to close drawer if it's open
+    override fun onBackPressed() {
+        if (binding.layoutMainDrawer.isDrawerOpen(GravityCompat.START)) {
+            binding.layoutMainDrawer.closeDrawer(GravityCompat.START)
+        } else {
+            super.onBackPressed()
         }
     }
 }

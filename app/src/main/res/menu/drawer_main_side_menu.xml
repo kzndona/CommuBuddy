@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- History -->
+    <item
+        android:id="@+id/menu_history"
+        android:title="History"
+        android:icon="@android:drawable/ic_menu_recent_history" /> <!-- Default icon -->
+
+    <!-- Bookmarks -->
+    <item
+        android:id="@+id/menu_bookmarks"
+        android:title="Bookmarks"
+        android:icon="@android:drawable/ic_menu_add" /> <!-- Default icon -->
+
+    <!-- Themes -->
+    <item
+        android:id="@+id/menu_themes"
+        android:title="Themes"
+        android:icon="@android:drawable/ic_menu_preferences" /> <!-- Default icon -->
+
+</menu>
