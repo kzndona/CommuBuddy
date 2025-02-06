@@ -71,7 +71,7 @@ class ForegroundLocationHelper (
 
                     listener.onFirstLocationUpdated(userLatLng!!)
 
-                    if (AlarmObject.alarmStatus == AlarmObject.ON || AlarmObject.alarmStatus == AlarmObject.RINGING) {
+                    if (AlarmObject.status == AlarmObject.ON || AlarmObject.status == AlarmObject.RINGING) {
                         val results = FloatArray(1)
                         distanceBetween(
                             userLatLng!!.latitude,
@@ -83,7 +83,7 @@ class ForegroundLocationHelper (
                         val distanceBetweenResult = results[0]
                         listener.onShowAlarmDistanceToDestination(distanceBetweenResult.toInt())
 
-                        if (distanceBetweenResult <= AlarmObject.ringDistance!! && AlarmObject.alarmStatus != AlarmObject.RINGING) {
+                        if (distanceBetweenResult <= AlarmObject.ringDistance!! && AlarmObject.status != AlarmObject.RINGING) {
                             activity.showAlarm()
                         }
                     }

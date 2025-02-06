@@ -6,6 +6,7 @@ object AlarmObject {
     const val ON: Int = 1
     const val OFF: Int = 0
     const val RINGING: Int = -1
+    const val BOOKMARKING: Int = 2
 
     var destinationID: String? = null
     var destinationName: String? = null
@@ -13,7 +14,7 @@ object AlarmObject {
     var destinationLatLng: LatLng? = null
     var originLatLng: LatLng? = null
     var ringDistance: Double? = null
-    var alarmStatus: Int = OFF
+    var status: Int = OFF
 
     fun save() {
         // TODO: Save this to a list temporarily, doesn't have enough time for database

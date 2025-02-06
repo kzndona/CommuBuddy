@@ -1,5 +1,6 @@
 package com.example.commubuddy
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.media.AudioManager
@@ -14,6 +15,8 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
+import com.example.commubuddy.Bookmark.BookmarksActivity
+import com.example.commubuddy.Bookmark.BookmarksItem
 import com.example.commubuddy.Direction.DirectionsHelper
 import com.example.commubuddy.History.HistoryActivity
 import com.example.commubuddy.History.HistoryItem
@@ -65,6 +68,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
+        val bookmarksLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val shouldUpdateMap = result.data?.getBooleanExtra("update_map", false) ?: false
+                if (shouldUpdateMap && AlarmObject.destinationLatLng != null) {
+                    setDestination(AlarmObject.destinationLatLng!!) // Update map
+                }
+            }
+        }
+
         binding.fabMain.setOnClickListener {
             if (binding.layoutMainDrawer.isDrawerOpen(GravityCompat.START)) {
                 binding.layoutMainDrawer.closeDrawer(GravityCompat.START)
@@ -77,10 +89,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                 R.id.menu_history -> {
                     val intent = Intent(this, HistoryActivity::class.java)
                     startActivity(intent)
-                    Toast.makeText(this, "History clicked", Toast.LENGTH_SHORT).show()
                 }
                 R.id.menu_bookmarks -> {
-                    Toast.makeText(this, "Bookmarks clicked", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this, BookmarksActivity::class.java)
+                    bookmarksLauncher.launch(intent)
                 }
                 R.id.menu_themes -> {
                     Toast.makeText(this, "Themes clicked", Toast.LENGTH_SHORT).show()
@@ -105,10 +117,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             override fun onStopTrackingTouch(seekBar: SeekBar?) { return }
         })
         binding.buttonMainStartAlarm.setOnClickListener {
-            when (AlarmObject.alarmStatus) {
+            when (AlarmObject.status) {
                 AlarmObject.ON -> cancelAlarm()
                 AlarmObject.OFF -> startAlarm()
                 AlarmObject.RINGING -> dismissAlarm()
+                AlarmObject.BOOKMARKING -> makeBookmark()
             }
         }
         binding.buttonMainRingtonePicker.setOnClickListener {
@@ -132,6 +145,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
 
         if (!isFirstLaunch) {
             foregroundLocationHelper.checkLocationPermission()
+        }
+
+        if (AlarmObject.status == AlarmObject.BOOKMARKING) {
+            binding.buttonMainStartAlarm.text = "Bookmark"
         }
     }
 
@@ -172,7 +189,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                 if (routePoints != null) {
                     drawRoute(routePoints)
                     binding.buttonMainStartAlarm.text = "Cancel Alarm"
-                    AlarmObject.alarmStatus = AlarmObject.ON
+                    AlarmObject.status = AlarmObject.ON
 
                     binding.fabMain.visibility = View.INVISIBLE
                     binding.buttonMainSearchLocation.visibility = View.INVISIBLE
@@ -192,7 +209,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         AlarmObject.originLatLng = null
         route?.remove()
         binding.buttonMainStartAlarm.text = "Start Alarm"
-        AlarmObject.alarmStatus = AlarmObject.OFF
+        AlarmObject.status = AlarmObject.OFF
 
         binding.fabMain.visibility = View.VISIBLE
         binding.buttonMainSearchLocation.visibility = View.VISIBLE
@@ -212,7 +229,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     fun showAlarm() {
         binding.buttonMainStartAlarm.text = "Stop Alarm"
         binding.frameMainAlarmBanner.visibility = View.VISIBLE
-        AlarmObject.alarmStatus = AlarmObject.RINGING
+        AlarmObject.status = AlarmObject.RINGING
 
         mediaPlayer?.stop()
         mediaPlayer?.release()
@@ -269,7 +286,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     }
 
     private fun initializeLocationHelper() {
-        foregroundLocationHelper = ForegroundLocationHelper(this, this, this)
+        if (!::foregroundLocationHelper.isInitialized) {
+            foregroundLocationHelper = ForegroundLocationHelper(this, this, this)
+        }
         foregroundLocationHelper.checkLocationPermission()
         isFirstLaunch = false
     }
@@ -320,7 +339,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         return uriString?.let { Uri.parse(it) }
     }
 
-    fun makeHistoryItem() {
+    private fun makeHistoryItem() {
         val newHistoryItem = HistoryItem(
             AlarmObject.destinationID,
             AlarmObject.destinationName,
@@ -333,16 +352,42 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         saveHistoryItem(newHistoryItem)
     }
 
-    fun saveHistoryItem(historyItem: HistoryItem) {
+    private fun saveHistoryItem(historyItem: HistoryItem) {
         val sharedPreferences = getSharedPreferences("HistoryPrefs", MODE_PRIVATE)
         val historyList = sharedPreferences.getStringSet("history", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
 
-        // Convert HistoryItem to JSON or String format and add it to the list
-        val historyJson = Gson().toJson(historyItem)  // You can use Gson to convert to JSON string
+        val historyJson = Gson().toJson(historyItem)
         historyList.add(historyJson)
-
         sharedPreferences.edit().putStringSet("history", historyList).apply()
     }
+
+    fun makeBookmark() {
+        val bookmark = BookmarksItem(
+            AlarmObject.destinationID,
+            AlarmObject.destinationName,
+            AlarmObject.destinationAddress,
+            AlarmObject.destinationLatLng,
+            AlarmObject.originLatLng,
+            AlarmObject.ringDistance
+        )
+
+        saveBookmark(bookmark)
+    }
+
+    private fun saveBookmark(bookmark: BookmarksItem) {
+        val sharedPreferences = getSharedPreferences("BookmarksPrefs", MODE_PRIVATE)
+        val bookmarksSet = sharedPreferences.getStringSet("bookmarks", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+
+        val bookmarkJson = Gson().toJson(bookmark)
+        bookmarksSet.add(bookmarkJson)
+        sharedPreferences.edit().putStringSet("bookmarks", bookmarksSet).apply()
+
+        cancelAlarm()
+
+        val intent = Intent(this, BookmarksActivity::class.java)
+        startActivity(intent)
+    }
+
 
     // Handle back button to close drawer if it's open
     override fun onBackPressed() {
