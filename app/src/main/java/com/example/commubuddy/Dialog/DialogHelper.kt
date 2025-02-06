@@ -1,8 +1,9 @@
-package com.example.commubuddy
+package com.example.commubuddy.Dialog
 
 import android.app.Activity
 import android.app.Dialog
 import android.widget.Button
+import com.example.commubuddy.R
 
 object DialogHelper {
 

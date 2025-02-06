@@ -1,4 +1,4 @@
-package com.example.commubuddy
+package com.example.commubuddy.Place
 
 import android.content.Intent
 import android.os.Bundle
@@ -8,6 +8,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.commubuddy.BuildConfig
+import com.example.commubuddy.R
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
@@ -15,7 +17,7 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 
-class LocationSearchesActivity : AppCompatActivity() {
+class PlaceSearchesActivity : AppCompatActivity() {
 
     private val apiKey = BuildConfig.MAPS_API_KEY
     private lateinit var searchLocationBar : SearchView

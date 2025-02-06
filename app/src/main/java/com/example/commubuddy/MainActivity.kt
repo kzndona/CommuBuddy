@@ -3,15 +3,18 @@ package com.example.commubuddy
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.util.Log
 import android.view.View
-import android.widget.Button
 import android.widget.SeekBar
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.example.commubuddy.Location.LocationBackgroundHelper
-import com.example.commubuddy.Location.LocationMainHelper
+import com.example.commubuddy.Direction.DirectionsHelper
+import com.example.commubuddy.Interfaces.LocationUpdateListener
+import com.example.commubuddy.Location.ForegroundLocationHelper
+import com.example.commubuddy.Place.PlacePredictionModel
+import com.example.commubuddy.Place.PlaceSearchesActivity
+import com.example.commubuddy.databinding.ActivityMainBinding
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -29,109 +32,65 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : AppCompatActivity(), OnMapReadyCallback {
+class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateListener {
 
     lateinit var map: GoogleMap
-    private lateinit var searchLocationButton: Button
-    lateinit var startAlarmButton: Button
-    private lateinit var ringDistanceSeekBar: SeekBar
 
-    private lateinit var locationMainHelper: LocationMainHelper
-
-    private var destinationID: String? = null
-    private var destinationName: String? = null
-    private var destinationAddress: String? = null
-    var destinationLatLng: LatLng? = null
     private var destinationMarker: Marker? = null
-    private var originLatLng: LatLng? = null
-    private var originMarker: Marker? = null
-    var ringDistance: Double? = null
     private var route: Polyline? = null
     private var mapCircle: Circle? = null
 
-    private var isFirstLaunch: Boolean = true
-    var isAlarmActive: Boolean = false
+    private lateinit var foregroundLocationHelper: ForegroundLocationHelper
+    private lateinit var searchActivityResultLauncher: ActivityResultLauncher<Intent>
+    private lateinit var binding: ActivityMainBinding
 
-    private val searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            val selectedPlace: PlacePredictionModel? = result.data?.getParcelableExtra("selected_place")
-            selectedPlace?.let {
-                destinationID = it.placeId
-                destinationName = it.primaryText
-                destinationAddress = it.secondaryText
-                destinationLatLng = it.latLng!!
-                setDestination(destinationLatLng!!)
-            }
-        }
-    }
+    private var isFirstLaunch: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        searchLocationButton = findViewById(R.id.button_main_search_location)
-        searchLocationButton.setOnClickListener {
-            // Intent to locations searches activity
-            val intent = Intent(this, LocationSearchesActivity::class.java)
+        setUpSearchLauncher()
+
+        binding.buttonMainSearchLocation.setOnClickListener {
+            val intent = Intent(this, PlaceSearchesActivity::class.java)
             searchActivityResultLauncher.launch(intent)
         }
-        ringDistanceSeekBar = findViewById(R.id.seekbar_main_ring_distance)
-        ringDistanceSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekbarMainRingDistance.setOnSeekBarChangeListener( object: SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val scaledProgress = 50 + (progress / 100.0) * (2000 - 50)
                 updateMapCircle(scaledProgress)
-                ringDistance = scaledProgress
             }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                return
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                return
-            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) { return }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) { return }
         })
-        ringDistanceSeekBar.isEnabled = false
-        startAlarmButton = findViewById(R.id.button_main_start_alarm)
-        startAlarmButton.setOnClickListener {
-            // Intent to locations searches activity
-            if (isAlarmActive) {
-                cancelAlarm()
-            } else startAlarm()
+        binding.buttonMainStartAlarm.setOnClickListener {
+            when (AlarmModel.alarmStatus) {
+                AlarmModel.ON -> cancelAlarm()
+                AlarmModel.OFF -> startAlarm()
+                AlarmModel.RINGING -> dismissAlarm()
+            }
         }
-        startAlarmButton.isEnabled = false
+        binding.seekbarMainRingDistance.isEnabled = false
+        binding.buttonMainStartAlarm.isEnabled = false
     }
 
     override fun onResume() {
         super.onResume()
 
         if (!isFirstLaunch) {
-            stopLocationBackgroundService()
-            locationMainHelper.checkLocationPermission()
+            foregroundLocationHelper.checkLocationPermission()
         }
-
     }
 
     override fun onPause() {
         super.onPause()
-
-        if (isAlarmActive) {
-            locationMainHelper.stopLocationUpdates()
-            startLocationBackgroundService()
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-
-        if (isAlarmActive) {
-            locationMainHelper.stopLocationUpdates()
-            startLocationBackgroundService()
-        }
+        foregroundLocationHelper.stopForegroundGPSUpdates()
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
@@ -140,43 +99,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             initializeLocationHelper()
         }
         googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition(
-            LatLng(14.59,121.04),
-            10.2f, 0f, 0f
-        )))
-    }
-
-    private fun initializeLocationHelper() {
-        locationMainHelper = LocationMainHelper(this, this)
-        locationMainHelper.checkLocationPermission()
-        isFirstLaunch = false
-    }
-
-    private fun setDestination(destinationLatLng: LatLng) {
-        destinationMarker?.remove()
-        destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
-        mapCircle?.remove()
-        mapCircle = null
-        updateMapCircle(50.0)
-        ringDistanceSeekBar.isEnabled = true
-        startAlarmButton.isEnabled = true
+            LatLng(14.59,121.04), 10.2f, 0f, 0f)))
     }
 
     private fun startAlarm() {
-        originLatLng = locationMainHelper.userLatLng
-        if (originLatLng == null) {
+        AlarmModel.originLatLng = foregroundLocationHelper.userLatLng
+        if (AlarmModel.originLatLng == null) {
             Toast.makeText(this, "Unable to get user location.", Toast.LENGTH_SHORT).show()
             return
         }
-        if (destinationLatLng == null) {
+        if (AlarmModel.destinationLatLng == null) {
             Toast.makeText(this, "Unable to get destination coordinates.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        originMarker = map.addMarker(MarkerOptions().position(originLatLng!!))
-
         CoroutineScope(Dispatchers.Main).launch {
             val directionsHelper = DirectionsHelper()
-            val urlString = directionsHelper.buildDirectionsURL(originLatLng!!, destinationLatLng!!)
+            val urlString = directionsHelper.buildDirectionsURL(AlarmModel.originLatLng!!, AlarmModel.destinationLatLng!!)
             val response = withContext(Dispatchers.IO) {
                 directionsHelper.fetchDirectionsData(urlString)
             }
@@ -185,11 +124,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val routePoints = directionsHelper.parseRoute(response)
                 if (routePoints != null) {
                     drawRoute(routePoints)
-                    startAlarmButton.text = "Cancel Alarm"
-                    isAlarmActive = true
-                    locationMainHelper.hasAlarmTriggered = false
-                    searchLocationButton.visibility = View.INVISIBLE
-                    ringDistanceSeekBar.visibility = View.INVISIBLE
+                    binding.buttonMainStartAlarm.text = "Cancel Alarm"
+                    AlarmModel.alarmStatus = AlarmModel.ON
+
+                    binding.buttonMainSearchLocation.visibility = View.INVISIBLE
+                    binding.seekbarMainRingDistance.visibility = View.INVISIBLE
                 } else {
                     Toast.makeText(this@MainActivity, "Failed to parse directions", Toast.LENGTH_SHORT).show()
                 }
@@ -200,13 +139,48 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun cancelAlarm() {
-        originLatLng = null
-        originMarker?.remove()
+        AlarmModel.originLatLng = null
         route?.remove()
-        startAlarmButton.text = "Start Alarm"
-        isAlarmActive = false
-        searchLocationButton.visibility = View.VISIBLE
-        ringDistanceSeekBar.visibility = View.VISIBLE
+        binding.buttonMainStartAlarm.text = "Start Alarm"
+        AlarmModel.alarmStatus = AlarmModel.OFF
+        binding.buttonMainSearchLocation.visibility = View.VISIBLE
+        binding.seekbarMainRingDistance.visibility = View.VISIBLE
+    }
+
+    private fun dismissAlarm() {
+        cancelAlarm()
+    }
+
+    fun showAlarm() {
+        binding.buttonMainStartAlarm.text = "Stop Alarm"
+        AlarmModel.alarmStatus = AlarmModel.RINGING
+    }
+
+    private fun setDestination(destinationLatLng: LatLng) {
+        destinationMarker?.remove()
+        destinationMarker = null
+        mapCircle?.remove()
+        mapCircle = null
+
+        destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
+        updateMapCircle(50.0)
+        binding.seekbarMainRingDistance.isEnabled = true
+        binding.buttonMainStartAlarm.isEnabled = true
+    }
+
+    private fun updateMapCircle(radius: Double) {
+        AlarmModel.ringDistance = radius
+        val center = AlarmModel.destinationLatLng?: return
+        if (mapCircle == null) {
+            mapCircle = map.addCircle(
+                CircleOptions()
+                    .center(center)
+                    .radius(radius)
+                    .strokeWidth(1f)
+                    .fillColor(Color.argb(.2f,0f,0f,255f)))
+        } else {
+            mapCircle!!.radius = radius
+        }
     }
 
     private fun drawRoute(routePoints: List<LatLng>) {
@@ -217,35 +191,33 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             zIndex(50f)
         }
         route = map.addPolyline(polylineOptions)
-        if (mapCircle != null && ringDistance != null) {
-            updateMapCircle(ringDistance!!)
+        if (mapCircle != null && AlarmModel.ringDistance != null) {
+            updateMapCircle(AlarmModel.ringDistance!!)
         }
     }
 
-    private fun updateMapCircle(radius: Double) {
-        val center = destinationLatLng?: return
-        if (mapCircle == null) {
-            mapCircle = map.addCircle(
-                CircleOptions()
-                    .center(center)
-                    .radius(radius)
-                    .strokeWidth(1f)
-                    .fillColor(Color.argb(.2f,0f,0f,255f))
-                    .zIndex(10f)
-            )
-        } else {
-            mapCircle!!.radius = radius
+    private fun initializeLocationHelper() {
+        foregroundLocationHelper = ForegroundLocationHelper(this, this, this)
+        foregroundLocationHelper.checkLocationPermission()
+        isFirstLaunch = false
+    }
+
+    override fun onLocationUpdated(location: LatLng) {
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.2f))
+    }
+
+    private fun setUpSearchLauncher() {
+        searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val selectedPlace: PlacePredictionModel? = result.data?.getParcelableExtra("selected_place")
+                selectedPlace?.let {
+                    AlarmModel.destinationID = it.placeId
+                    AlarmModel.destinationName = it.primaryText
+                    AlarmModel.destinationAddress = it.secondaryText
+                    AlarmModel.destinationLatLng = it.latLng!!
+                    setDestination(AlarmModel.destinationLatLng!!)
+                }
+            }
         }
-    }
-
-    private fun startLocationBackgroundService() {
-        val intent = Intent(this, LocationBackgroundHelper::class.java)
-        this.startForegroundService(intent)
-        Log.d("LocationService", "Background service called")
-    }
-
-    private fun stopLocationBackgroundService() {
-        val intent = Intent(this, LocationBackgroundHelper::class.java)
-        this.stopService(intent)
     }
 }

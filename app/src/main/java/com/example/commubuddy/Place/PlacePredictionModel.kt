@@ -1,4 +1,4 @@
-package com.example.commubuddy
+package com.example.commubuddy.Place
 
 import android.os.Parcelable
 import com.google.android.gms.maps.model.LatLng

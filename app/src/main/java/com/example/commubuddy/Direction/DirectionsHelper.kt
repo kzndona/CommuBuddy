@@ -1,6 +1,7 @@
-package com.example.commubuddy
+package com.example.commubuddy.Direction
 
 import android.util.Log
+import com.example.commubuddy.BuildConfig
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.PolyUtil
 import org.json.JSONObject
