@@ -7,17 +7,16 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Bundle
-import android.view.Gravity
 import android.view.View
 import android.widget.SeekBar
 import android.widget.Toast
-import android.widget.Toolbar
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
-import androidx.drawerlayout.widget.DrawerLayout
 import com.example.commubuddy.Direction.DirectionsHelper
+import com.example.commubuddy.History.HistoryActivity
+import com.example.commubuddy.History.HistoryItem
 import com.example.commubuddy.Interfaces.LocationUpdateListener
 import com.example.commubuddy.Location.ForegroundLocationHelper
 import com.example.commubuddy.Place.PlacePredictionModel
@@ -35,12 +34,11 @@ import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
-import com.google.android.material.navigation.NavigationView
+import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.log
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateListener {
 
@@ -77,6 +75,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         binding.navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.menu_history -> {
+                    val intent = Intent(this, HistoryActivity::class.java)
+                    startActivity(intent)
                     Toast.makeText(this, "History clicked", Toast.LENGTH_SHORT).show()
                 }
                 R.id.menu_bookmarks -> {
@@ -105,10 +105,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             override fun onStopTrackingTouch(seekBar: SeekBar?) { return }
         })
         binding.buttonMainStartAlarm.setOnClickListener {
-            when (AlarmModel.alarmStatus) {
-                AlarmModel.ON -> cancelAlarm()
-                AlarmModel.OFF -> startAlarm()
-                AlarmModel.RINGING -> dismissAlarm()
+            when (AlarmObject.alarmStatus) {
+                AlarmObject.ON -> cancelAlarm()
+                AlarmObject.OFF -> startAlarm()
+                AlarmObject.RINGING -> dismissAlarm()
             }
         }
         binding.buttonMainRingtonePicker.setOnClickListener {
@@ -150,19 +150,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     }
 
     private fun startAlarm() {
-        AlarmModel.originLatLng = foregroundLocationHelper.userLatLng
-        if (AlarmModel.originLatLng == null) {
+        AlarmObject.originLatLng = foregroundLocationHelper.userLatLng
+        if (AlarmObject.originLatLng == null) {
             Toast.makeText(this, "Unable to get user location.", Toast.LENGTH_SHORT).show()
             return
         }
-        if (AlarmModel.destinationLatLng == null) {
+        if (AlarmObject.destinationLatLng == null) {
             Toast.makeText(this, "Unable to get destination coordinates.", Toast.LENGTH_SHORT).show()
             return
         }
 
         CoroutineScope(Dispatchers.Main).launch {
             val directionsHelper = DirectionsHelper()
-            val urlString = directionsHelper.buildDirectionsURL(AlarmModel.originLatLng!!, AlarmModel.destinationLatLng!!)
+            val urlString = directionsHelper.buildDirectionsURL(AlarmObject.originLatLng!!, AlarmObject.destinationLatLng!!)
             val response = withContext(Dispatchers.IO) {
                 directionsHelper.fetchDirectionsData(urlString)
             }
@@ -172,10 +172,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                 if (routePoints != null) {
                     drawRoute(routePoints)
                     binding.buttonMainStartAlarm.text = "Cancel Alarm"
-                    AlarmModel.alarmStatus = AlarmModel.ON
+                    AlarmObject.alarmStatus = AlarmObject.ON
 
+                    binding.fabMain.visibility = View.INVISIBLE
                     binding.buttonMainSearchLocation.visibility = View.INVISIBLE
+                    binding.buttonMainRingtonePicker.visibility = View.INVISIBLE
                     binding.seekbarMainRingDistance.visibility = View.INVISIBLE
+                    makeHistoryItem()
                 } else {
                     Toast.makeText(this@MainActivity, "Failed to parse directions", Toast.LENGTH_SHORT).show()
                 }
@@ -186,11 +189,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     }
 
     private fun cancelAlarm() {
-        AlarmModel.originLatLng = null
+        AlarmObject.originLatLng = null
         route?.remove()
         binding.buttonMainStartAlarm.text = "Start Alarm"
-        AlarmModel.alarmStatus = AlarmModel.OFF
+        AlarmObject.alarmStatus = AlarmObject.OFF
+
+        binding.fabMain.visibility = View.VISIBLE
         binding.buttonMainSearchLocation.visibility = View.VISIBLE
+        binding.buttonMainRingtonePicker.visibility = View.VISIBLE
         binding.seekbarMainRingDistance.visibility = View.VISIBLE
     }
 
@@ -206,7 +212,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     fun showAlarm() {
         binding.buttonMainStartAlarm.text = "Stop Alarm"
         binding.frameMainAlarmBanner.visibility = View.VISIBLE
-        AlarmModel.alarmStatus = AlarmModel.RINGING
+        AlarmObject.alarmStatus = AlarmObject.RINGING
 
         mediaPlayer?.stop()
         mediaPlayer?.release()
@@ -235,8 +241,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     }
 
     private fun updateMapCircle(radius: Double) {
-        AlarmModel.ringDistance = radius
-        val center = AlarmModel.destinationLatLng?: return
+        AlarmObject.ringDistance = radius
+        val center = AlarmObject.destinationLatLng?: return
         if (mapCircle == null) {
             mapCircle = map.addCircle(
                 CircleOptions()
@@ -257,8 +263,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             zIndex(50f)
         }
         route = map.addPolyline(polylineOptions)
-        if (mapCircle != null && AlarmModel.ringDistance != null) {
-            updateMapCircle(AlarmModel.ringDistance!!)
+        if (mapCircle != null && AlarmObject.ringDistance != null) {
+            updateMapCircle(AlarmObject.ringDistance!!)
         }
     }
 
@@ -284,11 +290,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             if (result.resultCode == RESULT_OK) {
                 val selectedPlace: PlacePredictionModel? = result.data?.getParcelableExtra("selected_place")
                 selectedPlace?.let {
-                    AlarmModel.destinationID = it.placeId
-                    AlarmModel.destinationName = it.primaryText
-                    AlarmModel.destinationAddress = it.secondaryText
-                    AlarmModel.destinationLatLng = it.latLng!!
-                    setDestination(AlarmModel.destinationLatLng!!)
+                    AlarmObject.destinationID = it.placeId
+                    AlarmObject.destinationName = it.primaryText
+                    AlarmObject.destinationAddress = it.secondaryText
+                    AlarmObject.destinationLatLng = it.latLng!!
+                    setDestination(AlarmObject.destinationLatLng!!)
                 }
             }
         }
@@ -312,6 +318,30 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         val sharedPreferences = getSharedPreferences("AlarmPrefs", MODE_PRIVATE)
         val uriString = sharedPreferences.getString("ringtone_uri", null)
         return uriString?.let { Uri.parse(it) }
+    }
+
+    fun makeHistoryItem() {
+        val newHistoryItem = HistoryItem(
+            AlarmObject.destinationID,
+            AlarmObject.destinationName,
+            AlarmObject.destinationAddress,
+            AlarmObject.destinationLatLng,
+            AlarmObject.originLatLng,
+            AlarmObject.ringDistance
+        )
+
+        saveHistoryItem(newHistoryItem)
+    }
+
+    fun saveHistoryItem(historyItem: HistoryItem) {
+        val sharedPreferences = getSharedPreferences("HistoryPrefs", MODE_PRIVATE)
+        val historyList = sharedPreferences.getStringSet("history", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+
+        // Convert HistoryItem to JSON or String format and add it to the list
+        val historyJson = Gson().toJson(historyItem)  // You can use Gson to convert to JSON string
+        historyList.add(historyJson)
+
+        sharedPreferences.edit().putStringSet("history", historyList).apply()
     }
 
     // Handle back button to close drawer if it's open

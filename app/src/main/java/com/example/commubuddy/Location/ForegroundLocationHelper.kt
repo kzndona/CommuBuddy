@@ -11,7 +11,7 @@ import android.net.Uri
 import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.ContextCompat
-import com.example.commubuddy.AlarmModel
+import com.example.commubuddy.AlarmObject
 import com.example.commubuddy.Dialog.DialogHelper
 import com.example.commubuddy.Interfaces.LocationUpdateListener
 import com.example.commubuddy.MainActivity
@@ -71,19 +71,19 @@ class ForegroundLocationHelper (
 
                     listener.onFirstLocationUpdated(userLatLng!!)
 
-                    if (AlarmModel.alarmStatus == AlarmModel.ON || AlarmModel.alarmStatus == AlarmModel.RINGING) {
+                    if (AlarmObject.alarmStatus == AlarmObject.ON || AlarmObject.alarmStatus == AlarmObject.RINGING) {
                         val results = FloatArray(1)
                         distanceBetween(
                             userLatLng!!.latitude,
                             userLatLng!!.longitude,
-                            AlarmModel.destinationLatLng!!.latitude,
-                            AlarmModel.destinationLatLng!!.longitude,
+                            AlarmObject.destinationLatLng!!.latitude,
+                            AlarmObject.destinationLatLng!!.longitude,
                             results
                         )
                         val distanceBetweenResult = results[0]
                         listener.onShowAlarmDistanceToDestination(distanceBetweenResult.toInt())
 
-                        if (distanceBetweenResult <= AlarmModel.ringDistance!! && AlarmModel.alarmStatus != AlarmModel.RINGING) {
+                        if (distanceBetweenResult <= AlarmObject.ringDistance!! && AlarmObject.alarmStatus != AlarmObject.RINGING) {
                             activity.showAlarm()
                         }
                     }

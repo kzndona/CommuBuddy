@@ -2,7 +2,7 @@ package com.example.commubuddy
 
 import com.google.android.gms.maps.model.LatLng
 
-object AlarmModel {
+object AlarmObject {
     const val ON: Int = 1
     const val OFF: Int = 0
     const val RINGING: Int = -1
