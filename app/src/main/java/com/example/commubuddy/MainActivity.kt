@@ -72,7 +72,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             if (result.resultCode == Activity.RESULT_OK) {
                 val shouldUpdateMap = result.data?.getBooleanExtra("update_map", false) ?: false
                 if (shouldUpdateMap && AlarmObject.destinationLatLng != null) {
-                    setDestination(AlarmObject.destinationLatLng!!) // Update map
+                    setDestination(AlarmObject.destinationLatLng!!)
+                    updateMapCircle(AlarmObject.ringDistance!!)
                 }
             }
         }
@@ -116,7 +117,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             override fun onStartTrackingTouch(seekBar: SeekBar?) { return }
             override fun onStopTrackingTouch(seekBar: SeekBar?) { return }
         })
-        binding.buttonMainStartAlarm.setOnClickListener {
+        binding.buttonMainAlarm.setOnClickListener {
             when (AlarmObject.status) {
                 AlarmObject.ON -> cancelAlarm()
                 AlarmObject.OFF -> startAlarm()
@@ -137,7 +138,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         }
         binding.frameMainAlarmBanner.visibility = View.INVISIBLE
         binding.seekbarMainRingDistance.isEnabled = false
-        binding.buttonMainStartAlarm.isEnabled = false
+        binding.buttonMainAlarm.isEnabled = false
     }
 
     override fun onResume() {
@@ -148,7 +149,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         }
 
         if (AlarmObject.status == AlarmObject.BOOKMARKING) {
-            binding.buttonMainStartAlarm.text = "Bookmark"
+            binding.buttonMainAlarm.text = "Bookmark"
         }
     }
 
@@ -162,7 +163,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         if (isFirstLaunch) {
             initializeLocationHelper()
         }
-        googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition(
+        googleMap.moveCamera(
+            CameraUpdateFactory.newCameraPosition(CameraPosition(
             LatLng(14.59,121.04), 10.2f, 0f, 0f)))
     }
 
@@ -188,13 +190,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                 val routePoints = directionsHelper.parseRoute(response)
                 if (routePoints != null) {
                     drawRoute(routePoints)
-                    binding.buttonMainStartAlarm.text = "Cancel Alarm"
+                    binding.buttonMainAlarm.text = "Cancel Alarm"
                     AlarmObject.status = AlarmObject.ON
 
                     binding.fabMain.visibility = View.INVISIBLE
                     binding.buttonMainSearchLocation.visibility = View.INVISIBLE
-                    binding.buttonMainRingtonePicker.visibility = View.INVISIBLE
-                    binding.seekbarMainRingDistance.visibility = View.INVISIBLE
+                    binding.layoutMainSecondary.visibility = View.INVISIBLE
                     makeHistoryItem()
                 } else {
                     Toast.makeText(this@MainActivity, "Failed to parse directions", Toast.LENGTH_SHORT).show()
@@ -208,13 +209,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     private fun cancelAlarm() {
         AlarmObject.originLatLng = null
         route?.remove()
-        binding.buttonMainStartAlarm.text = "Start Alarm"
+        binding.buttonMainAlarm.text = "Start Alarm"
         AlarmObject.status = AlarmObject.OFF
 
         binding.fabMain.visibility = View.VISIBLE
         binding.buttonMainSearchLocation.visibility = View.VISIBLE
-        binding.buttonMainRingtonePicker.visibility = View.VISIBLE
-        binding.seekbarMainRingDistance.visibility = View.VISIBLE
+        binding.layoutMainSecondary.visibility = View.VISIBLE
     }
 
     private fun dismissAlarm() {
@@ -227,7 +227,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     }
 
     fun showAlarm() {
-        binding.buttonMainStartAlarm.text = "Stop Alarm"
+        binding.buttonMainAlarm.text = "Stop Alarm"
         binding.frameMainAlarmBanner.visibility = View.VISIBLE
         AlarmObject.status = AlarmObject.RINGING
 
@@ -252,9 +252,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         mapCircle = null
 
         destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
-        updateMapCircle(50.0)
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(destinationLatLng,15.2f))
+        if (AlarmObject.ringDistance != null) {
+            val seekProgress = (AlarmObject.ringDistance!! - 50) / (2000 - 50) * 100
+            binding.seekbarMainRingDistance.progress = seekProgress.toInt()
+            updateMapCircle(AlarmObject.ringDistance!!)
+        } else {
+            updateMapCircle(50.0)
+        }
+        binding.buttonMainSearchLocation.text = AlarmObject.destinationName
         binding.seekbarMainRingDistance.isEnabled = true
-        binding.buttonMainStartAlarm.isEnabled = true
+        binding.buttonMainAlarm.isEnabled = true
     }
 
     private fun updateMapCircle(radius: Double) {
@@ -270,6 +278,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         } else {
             mapCircle!!.radius = radius
         }
+        binding.textMainRingDistance.text = "Ring in: ${radius.toInt()}m"
     }
 
     private fun drawRoute(routePoints: List<LatLng>) {
@@ -307,13 +316,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     private fun setUpSearchLauncher() {
         searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                val selectedPlace: PlacePredictionModel? = result.data?.getParcelableExtra("selected_place")
-                selectedPlace?.let {
-                    AlarmObject.destinationID = it.placeId
-                    AlarmObject.destinationName = it.primaryText
-                    AlarmObject.destinationAddress = it.secondaryText
-                    AlarmObject.destinationLatLng = it.latLng!!
-                    setDestination(AlarmObject.destinationLatLng!!)
+                val intentData = result.data
+
+                val selectedPlace: PlacePredictionModel? = intentData?.getParcelableExtra("selected_place")
+                if (selectedPlace != null) {
+                    selectedPlace?.let {
+                        AlarmObject.destinationID = it.placeId
+                        AlarmObject.destinationName = it.primaryText
+                        AlarmObject.destinationAddress = it.secondaryText
+                        AlarmObject.destinationLatLng = it.latLng!!
+                        setDestination(AlarmObject.destinationLatLng!!)
+                    }
+                } else {
+                    val shouldUpdateMap = result.data?.getBooleanExtra("update_map", false) ?: false
+                    if (shouldUpdateMap && AlarmObject.destinationLatLng != null) {
+                        setDestination(AlarmObject.destinationLatLng!!) // Update map
+                    }
                 }
             }
         }

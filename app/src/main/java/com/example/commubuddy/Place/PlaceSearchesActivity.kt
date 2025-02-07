@@ -1,5 +1,7 @@
 package com.example.commubuddy.Place
 
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -8,6 +10,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.commubuddy.AlarmObject
+import com.example.commubuddy.Bookmark.BookmarksAdapter
+import com.example.commubuddy.Bookmark.BookmarksItem
 import com.example.commubuddy.BuildConfig
 import com.example.commubuddy.R
 import com.google.android.gms.maps.model.LatLng
@@ -16,6 +21,7 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.gson.Gson
 
 class PlaceSearchesActivity : AppCompatActivity() {
 
@@ -75,11 +81,53 @@ class PlaceSearchesActivity : AppCompatActivity() {
                 finish()
             }
         }
-        recyclerView.adapter = adapter
+        showBookmarks()
     }
 
     private fun handleQuery(query: String) {
-        // Request query to Places API
+        if (query.isEmpty()) {
+            // If search query is empty, display bookmarks
+            showBookmarks()
+        } else {
+            // Request query to Places API and display predictions
+            fetchPlacePredictions(query)
+        }
+    }
+
+    private fun showBookmarks() {
+        val bookmarksList = loadBookmarks()
+        val bookmarksAdapter = BookmarksAdapter(
+            bookmarksList,
+            onBookmarkClick = { bookmarksItem: BookmarksItem ->
+                if (AlarmObject.status == AlarmObject.OFF) {
+                    AlarmObject.destinationID = bookmarksItem.destinationID
+                    AlarmObject.destinationName = bookmarksItem.destinationName
+                    AlarmObject.destinationAddress = bookmarksItem.destinationAddress
+                    AlarmObject.destinationLatLng = bookmarksItem.destinationLatLng
+                    AlarmObject.ringDistance = bookmarksItem.ringDistance
+
+                    val resultIntent = Intent()
+                    resultIntent.putExtra("update_map", true)
+                    setResult(Activity.RESULT_OK, resultIntent)
+                    finish()
+                } else {
+                    Toast.makeText(this, "An alarm is currently active", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+        recyclerView.adapter = bookmarksAdapter
+    }
+
+    private fun loadBookmarks(): List<BookmarksItem> {
+        val sharedPreferences = getSharedPreferences("BookmarksPrefs", MODE_PRIVATE)
+        val bookmarksSet = sharedPreferences.getStringSet("bookmarks", mutableSetOf()) ?: mutableSetOf()
+
+        return bookmarksSet.mapNotNull { Gson().fromJson(it, BookmarksItem::class.java) }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun fetchPlacePredictions(query: String) {
+        recyclerView.adapter = adapter
         val request = FindAutocompletePredictionsRequest.builder()
             .setQuery(query)
             .setRegionCode("ph")

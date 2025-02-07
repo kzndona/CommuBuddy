@@ -8,12 +8,13 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/layout_bookmarks_recycler"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    <LinearLayout
         android:id="@+id/layout_bookmarks_buttons_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center">
 
@@ -24,6 +25,7 @@
             android:layout_marginHorizontal="8dp"
             android:layout_marginVertical="8dp"
             android:text="Delete Bookmarks"
+            android:fontFamily="@font/lato_bold"
             android:textColor="@color/quantum_googred900"/>
 
         <Button
@@ -32,7 +34,8 @@
             android:layout_height="72dp"
             android:layout_marginHorizontal="8dp"
             android:layout_marginVertical="8dp"
-            android:text="Add Bookmarks"/>
+            android:text="Add Bookmarks"
+            android:fontFamily="@font/lato_bold" />
 
     </LinearLayout>
 

@@ -43,59 +43,106 @@
                     android:text="Xm"
                     android:textSize="56sp"
                     android:textColor="@color/white"
-                    android:textStyle="bold"
+                    android:fontFamily="@font/lato_black"
                     android:layout_gravity="center"/>
     
             </FrameLayout>
     
         </LinearLayout>
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_main"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_gravity="end|bottom"
-            android:layout_margin="16dp"
-            android:src="@android:drawable/ic_menu_sort_by_size"
-            android:contentDescription="Open Navigation Drawer"/>
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:layout_alignParentBottom="true">
-    
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab_main"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginVertical="8dp"
+                android:src="@android:drawable/ic_menu_sort_by_size"
+                app:fabSize="mini"
+                android:contentDescription="Open Navigation Drawer"/>
+
             <Button
                 android:id="@+id/button_main_search_location"
                 android:layout_width="match_parent"
-                android:layout_height="72dp"
-                android:layout_marginHorizontal="40dp"
-                android:layout_marginVertical="8dp"
-                android:text="Search Location"/>
+                android:layout_height="64dp"
+                android:layout_marginHorizontal="12dp"
+                android:text="Search Location"
+                android:textSize="16sp"
+                android:textAllCaps="false"
+                android:fontFamily="@font/lato_bold"
+                android:background="@drawable/button_main_primary"/>
     
-            <Button
-                android:id="@+id/button_main_ringtone_picker"
+            <LinearLayout
+                android:id="@+id/layout_main_secondary"
                 android:layout_width="match_parent"
-                android:layout_height="72dp"
-                android:layout_marginHorizontal="40dp"
+                android:layout_height="120dp"
+                android:layout_marginHorizontal="12dp"
                 android:layout_marginVertical="8dp"
-                android:text="Choose Ringtone"/>
-    
-            <SeekBar
-                android:id="@+id/seekbar_main_ring_distance"
+                android:paddingHorizontal="12dp"
+                android:paddingTop="12dp"
+                android:orientation="vertical"
+                android:background="@drawable/container_main_secondary">
+
+                <Button
+                    android:id="@+id/button_main_ringtone_picker"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Choose Ringtone"
+                    android:textSize="16sp"
+                    android:textAllCaps="false"
+                    android:fontFamily="@font/lato_bold"
+                    android:background="@drawable/button_main_secondary"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="36dp"
+                    android:layout_marginTop="4dp">
+
+                    <TextView
+                        android:id="@+id/text_main_ring_distance"
+                        android:layout_width="132dp"
+                        android:layout_height="32dp"
+                        android:text="Ring in: 50m"
+                        android:textColor="@color/black"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/lato_regular"
+                        android:gravity="center"
+                        android:layout_gravity="center"/>
+
+                    <SeekBar
+                        android:id="@+id/seekbar_main_ring_distance"
+                        android:layout_width="match_parent"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="40dp"
-                android:layout_marginVertical="8dp" />
-    
-            <Button
-                android:id="@+id/button_main_start_alarm"
-                android:layout_width="match_parent"
-                android:layout_height="72dp"
-                android:layout_marginHorizontal="40dp"
-                android:layout_marginVertical="8dp"
-                android:text="Start Alarm"/>
-    
+                android:background="@drawable/container_main_alarm">
+
+                <Button
+                    android:id="@+id/button_main_alarm"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="20dp"
+                    android:text="Start Alarm"
+                    android:textSize="16sp"
+                    android:fontFamily="@font/lato_bold"
+                    android:background="@drawable/button_main_primary"/>
+
+            </FrameLayout>
+
         </LinearLayout>
     
     </RelativeLayout>
