@@ -261,6 +261,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             updateMapCircle(50.0)
         }
         binding.buttonMainSearchLocation.text = AlarmObject.destinationName
+        binding.textMainAlarmAddress.text = AlarmObject.destinationAddress
         binding.seekbarMainRingDistance.isEnabled = true
         binding.buttonMainAlarm.isEnabled = true
     }
