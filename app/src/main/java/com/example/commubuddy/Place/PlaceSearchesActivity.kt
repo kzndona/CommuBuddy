@@ -5,14 +5,16 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.Button
+import android.widget.ImageView
 import android.widget.SearchView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.commubuddy.AlarmItem
 import com.example.commubuddy.AlarmObject
 import com.example.commubuddy.Bookmark.BookmarksAdapter
-import com.example.commubuddy.Bookmark.BookmarksItem
 import com.example.commubuddy.BuildConfig
 import com.example.commubuddy.R
 import com.google.android.gms.maps.model.LatLng
@@ -33,8 +35,21 @@ class PlaceSearchesActivity : AppCompatActivity() {
     private val predictions = mutableListOf<PlacePredictionModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val sharedPreferences = getSharedPreferences("AppSettings", MODE_PRIVATE)
+        val savedTheme = sharedPreferences.getString("theme", "light")
+
+        when (savedTheme) {
+            "dark" -> setTheme(R.style.Theme_App_Dark)
+            "paper" -> setTheme(R.style.Theme_App_Paper)
+            "blue" -> setTheme(R.style.Theme_App_Blue)
+            else -> setTheme(R.style.Theme_App_Default)
+        }
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_location_searches)
+
+        val backButton = findViewById<ImageView>(R.id.img_search_location_back_button)
+        backButton.setOnClickListener { finish() }
 
         // Log an error if apiKey is not set.
         if (apiKey.isEmpty() || apiKey == "DEFAULT_API_KEY") {
@@ -98,7 +113,7 @@ class PlaceSearchesActivity : AppCompatActivity() {
         val bookmarksList = loadBookmarks()
         val bookmarksAdapter = BookmarksAdapter(
             bookmarksList,
-            onBookmarkClick = { bookmarksItem: BookmarksItem ->
+            onBookmarkClick = { bookmarksItem: AlarmItem ->
                 if (AlarmObject.status == AlarmObject.OFF) {
                     AlarmObject.destinationID = bookmarksItem.destinationID
                     AlarmObject.destinationName = bookmarksItem.destinationName
@@ -118,11 +133,11 @@ class PlaceSearchesActivity : AppCompatActivity() {
         recyclerView.adapter = bookmarksAdapter
     }
 
-    private fun loadBookmarks(): List<BookmarksItem> {
+    private fun loadBookmarks(): List<AlarmItem> {
         val sharedPreferences = getSharedPreferences("BookmarksPrefs", MODE_PRIVATE)
-        val bookmarksSet = sharedPreferences.getStringSet("bookmarks", mutableSetOf()) ?: mutableSetOf()
+        val bookmarksSet = sharedPreferences.getStringSet("bookmark", mutableSetOf()) ?: mutableSetOf()
 
-        return bookmarksSet.mapNotNull { Gson().fromJson(it, BookmarksItem::class.java) }
+        return bookmarksSet.mapNotNull { Gson().fromJson(it, AlarmItem::class.java) }
     }
 
     @SuppressLint("NotifyDataSetChanged")

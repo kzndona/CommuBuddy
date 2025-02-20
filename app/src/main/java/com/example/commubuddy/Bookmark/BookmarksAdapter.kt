@@ -5,18 +5,19 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.commubuddy.AlarmItem
 import com.example.commubuddy.R
 
 class BookmarksAdapter(
-    private val bookmarksList: List<BookmarksItem>,
-    private val onBookmarkClick: (BookmarksItem) -> Unit
+    private val bookmarksList: List<AlarmItem>,
+    private val onBookmarkClick: (AlarmItem) -> Unit
 ) : RecyclerView.Adapter<BookmarksAdapter.BookmarksViewHolder>() {
 
     class BookmarksViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val nameTextView: TextView = itemView.findViewById(R.id.bookmarks_item_name)
         private val distanceTextView: TextView = itemView.findViewById(R.id.bookmarks_item_distance)
 
-        fun bind(bookmarksItem: BookmarksItem, onBookmarkClick: (BookmarksItem) -> Unit) {
+        fun bind(bookmarksItem: AlarmItem, onBookmarkClick: (AlarmItem) -> Unit) {
             nameTextView.text = bookmarksItem.destinationName
             distanceTextView.text = "${bookmarksItem.ringDistance} meters"  // Or any format you prefer
 

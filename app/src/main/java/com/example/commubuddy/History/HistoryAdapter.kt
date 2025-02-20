@@ -5,9 +5,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.commubuddy.AlarmItem
 import com.example.commubuddy.R
 
-class HistoryAdapter(private val historyList: List<HistoryItem>) : RecyclerView.Adapter<HistoryAdapter.HistoryViewHolder>() {
+class HistoryAdapter(private val historyList: List<AlarmItem>) : RecyclerView.Adapter<HistoryAdapter.HistoryViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HistoryViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_history, parent, false)
@@ -25,7 +26,7 @@ class HistoryAdapter(private val historyList: List<HistoryItem>) : RecyclerView.
         private val nameTextView: TextView = itemView.findViewById(R.id.history_item_name)
         private val distanceTextView: TextView = itemView.findViewById(R.id.history_item_distance)
 
-        fun bind(historyItem: HistoryItem) {
+        fun bind(historyItem: AlarmItem) {
             nameTextView.text = historyItem.destinationName
             distanceTextView.text = "${historyItem.ringDistance} meters"  // Or any format you prefer
         }

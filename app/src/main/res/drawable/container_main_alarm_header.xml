@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <gradient
-        android:startColor="#A0FFA0"
+        android:startColor="?attr/alarmHeaderAccent"
         android:endColor="@color/black"
         android:type="radial"
         android:gradientRadius="100dp"

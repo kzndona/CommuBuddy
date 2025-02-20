@@ -15,8 +15,4 @@ object AlarmObject {
     var originLatLng: LatLng? = null
     var ringDistance: Double? = null
     var status: Int = OFF
-
-    fun save() {
-        // TODO: Save this to a list temporarily, doesn't have enough time for database
-    }
 }

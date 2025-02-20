@@ -2,6 +2,7 @@ package com.example.commubuddy
 
 import android.app.Activity
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -16,12 +17,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
 import com.example.commubuddy.Bookmark.BookmarksActivity
-import com.example.commubuddy.Bookmark.BookmarksItem
 import com.example.commubuddy.Direction.DirectionsHelper
 import com.example.commubuddy.History.HistoryActivity
-import com.example.commubuddy.History.HistoryItem
 import com.example.commubuddy.Interfaces.LocationUpdateListener
-import com.example.commubuddy.Location.ForegroundLocationHelper
+import com.example.commubuddy.Service.ForegroundServiceHelper
 import com.example.commubuddy.Place.PlacePredictionModel
 import com.example.commubuddy.Place.PlaceSearchesActivity
 import com.example.commubuddy.databinding.ActivityMainBinding
@@ -33,6 +32,8 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.Circle
 import com.google.android.gms.maps.model.CircleOptions
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polyline
@@ -46,138 +47,161 @@ import kotlinx.coroutines.withContext
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateListener {
 
     lateinit var map: GoogleMap
-    private var destinationMarker: Marker? = null
-    private var route: Polyline? = null
-    private var mapCircle: Circle? = null
+    private var markerDestination: Marker? = null
+    private var polylineRoute: Polyline? = null
+    private var circleRange: Circle? = null
 
-    private lateinit var foregroundLocationHelper: ForegroundLocationHelper
-    private lateinit var searchActivityResultLauncher: ActivityResultLauncher<Intent>
+    private lateinit var fgServiceHelper: ForegroundServiceHelper
+    private lateinit var resultsLauncher: ActivityResultLauncher<Intent>
+    private lateinit var bookmarksLauncher: ActivityResultLauncher<Intent>
     private lateinit var binding: ActivityMainBinding
+    // TODO: BGServiceHelper in the future
 
-    private val REQUEST_CODE_RINGTONE: Int = 1001
+    private val requestCodeRingtone: Int = 1001
     private var mediaPlayer: MediaPlayer? = null
     private var isFirstLaunch: Boolean = true
     private var isFirstUpdate: Boolean = true
+    private var shouldAnimateCamera: Boolean = false
+
+    private lateinit var alarmItem: AlarmItem
+    private lateinit var sharedPreferences: SharedPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        sharedPreferences = getSharedPreferences("AppSettings", MODE_PRIVATE)
+        val savedTheme = sharedPreferences.getString("theme", "light")
+
+        when (savedTheme) {
+            "dark" -> setTheme(R.style.Theme_App_Dark)
+            "paper" -> setTheme(R.style.Theme_App_Paper)
+            "blue" -> setTheme(R.style.Theme_App_Blue)
+            else -> setTheme(R.style.Theme_App_Default)
+        }
+
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
+        val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        val bookmarksLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                val shouldUpdateMap = result.data?.getBooleanExtra("update_map", false) ?: false
-                if (shouldUpdateMap && AlarmObject.destinationLatLng != null) {
-                    setDestination(AlarmObject.destinationLatLng!!)
-                    updateMapCircle(AlarmObject.ringDistance!!)
-                }
-            }
-        }
+        setupNavigationDrawer()
+        setupBookmarksLauncher()
+        setupSearchLauncher()
+        setupClickListeners()
 
+        binding.seekbarMainRingDistance.isEnabled = false
+    }
+
+    private fun setupNavigationDrawer() {
         binding.fabMain.setOnClickListener {
-            if (binding.layoutMainDrawer.isDrawerOpen(GravityCompat.START)) {
-                binding.layoutMainDrawer.closeDrawer(GravityCompat.START)
-            } else {
-                binding.layoutMainDrawer.openDrawer(GravityCompat.START)
+            with (binding.layoutMainDrawer) {
+                if (isDrawerOpen(GravityCompat.START)) closeDrawer(GravityCompat.START) else openDrawer(GravityCompat.START)
             }
         }
         binding.navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
-                R.id.menu_history -> {
-                    val intent = Intent(this, HistoryActivity::class.java)
-                    startActivity(intent)
-                }
-                R.id.menu_bookmarks -> {
-                    val intent = Intent(this, BookmarksActivity::class.java)
-                    bookmarksLauncher.launch(intent)
-                }
-                R.id.menu_themes -> {
-                    Toast.makeText(this, "Themes clicked", Toast.LENGTH_SHORT).show()
-                }
+                R.id.menu_history -> startActivity(Intent(this, HistoryActivity::class.java))
+                R.id.menu_bookmarks -> bookmarksLauncher.launch(Intent(this, BookmarksActivity::class.java))
+                R.id.menu_themes -> startActivity(Intent(this, ThemesActivity::class.java))
             }
-            binding.layoutMainDrawer.closeDrawer(GravityCompat.START) // Close drawer after item click
+            binding.layoutMainDrawer.closeDrawer(GravityCompat.START)
             true
         }
+    }
 
-        setUpSearchLauncher()
+    private fun setupBookmarksLauncher() {
+        bookmarksLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                result.data?.getBooleanExtra("update_map", false)?.takeIf { it && AlarmObject.destinationLatLng != null }?.let {
+                    setDestination(AlarmObject.destinationLatLng!!)
+                    updateMapCircle(AlarmObject.ringDistance ?: 50.0)
+                }
+            }
+        }
+    }
 
-        binding.buttonMainSearchLocation.setOnClickListener {
-            val intent = Intent(this, PlaceSearchesActivity::class.java)
-            searchActivityResultLauncher.launch(intent)
+    private fun setupSearchLauncher() {
+        resultsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val selectedPlace: PlacePredictionModel? = result.data?.getParcelableExtra("selected_place")
+                if (selectedPlace != null) {
+                    AlarmObject.destinationID = selectedPlace.placeId
+                    AlarmObject.destinationName = selectedPlace.primaryText
+                    AlarmObject.destinationAddress = selectedPlace.secondaryText
+                    AlarmObject.destinationLatLng = selectedPlace.latLng!!
+                    setDestination(AlarmObject.destinationLatLng!!)
+                } else {
+                    val shouldUpdateMap = result.data?.getBooleanExtra("update_map", false) ?: false
+                    if (shouldUpdateMap && AlarmObject.destinationLatLng != null) setDestination(AlarmObject.destinationLatLng!!)
+                }
+            }
+        }
+    }
+
+    private fun setupClickListeners() {
+        binding.layoutMainSearchLocation.setOnClickListener {
+            resultsLauncher.launch(Intent(this, PlaceSearchesActivity::class.java))
+            isFirstUpdate = false
         }
         binding.seekbarMainRingDistance.setOnSeekBarChangeListener( object: SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val scaledProgress = 50 + (progress / 100.0) * (2000 - 50)
                 updateMapCircle(scaledProgress)
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) { return }
-            override fun onStopTrackingTouch(seekBar: SeekBar?) { return }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-        binding.buttonMainAlarm.setOnClickListener {
-            when (AlarmObject.status) {
-                AlarmObject.ON -> cancelAlarm()
-                AlarmObject.OFF -> startAlarm()
-                AlarmObject.RINGING -> dismissAlarm()
-                AlarmObject.BOOKMARKING -> makeBookmark()
-            }
-        }
-        binding.buttonMainRingtonePicker.setOnClickListener {
-            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Alarm Ringtone")
-
-                // Load the previously selected ringtone (if any)
-                val savedUri = getSavedRingtoneUri()
-                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, savedUri)
-            }
-            startActivityForResult(intent, REQUEST_CODE_RINGTONE)
-        }
-        binding.frameMainAlarmBanner.visibility = View.INVISIBLE
-        binding.seekbarMainRingDistance.isEnabled = false
-        binding.buttonMainAlarm.isEnabled = false
+        binding.buttonMainAlarm.setOnClickListener { switchAlarmButton() }
+        binding.buttonMainRingtonePicker.setOnClickListener { pickRingtone() }
     }
 
     override fun onResume() {
         super.onResume()
-
-        if (!isFirstLaunch) {
-            foregroundLocationHelper.checkLocationPermission()
-        }
-
-        if (AlarmObject.status == AlarmObject.BOOKMARKING) {
-            binding.buttonMainAlarm.text = "Bookmark"
-        }
+        if (!isFirstLaunch) fgServiceHelper.checkLocationPermission()
+        if (AlarmObject.status == AlarmObject.BOOKMARKING) binding.buttonMainAlarm.text = "Bookmark"
     }
 
     override fun onPause() {
         super.onPause()
-        foregroundLocationHelper.stopForegroundGPSUpdates()
+        fgServiceHelper.stopForegroundGPSUpdates()
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
-        if (isFirstLaunch) {
-            initializeLocationHelper()
+
+        val currentTheme = sharedPreferences.getString("theme", "light") // Retrieve saved theme
+
+        val styleJson = when (currentTheme) {
+            "dark" -> R.raw.map_style_dark
+            "paper" -> R.raw.map_style_paper
+            "blue" -> R.raw.map_style_blue
+            else -> R.raw.map_style_default
         }
-        googleMap.moveCamera(
-            CameraUpdateFactory.newCameraPosition(CameraPosition(
-            LatLng(14.59,121.04), 10.2f, 0f, 0f)))
+        googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, styleJson))
+
+        if (isFirstLaunch) initializeLocationHelper()
+        googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition(LatLng(14.59,121.04), 10.2f, 0f, 0f)))
+    }
+
+
+    private fun initializeLocationHelper() {
+        if (!::fgServiceHelper.isInitialized) fgServiceHelper = ForegroundServiceHelper(this, this, this)
+        fgServiceHelper.checkLocationPermission()
+        isFirstLaunch = false
+    }
+
+    private fun switchAlarmButton() {
+        when (AlarmObject.status) {
+            AlarmObject.ON -> cancelAlarm()
+            AlarmObject.OFF -> startAlarm()
+            AlarmObject.RINGING -> dismissAlarm()
+            AlarmObject.BOOKMARKING -> saveItemAs("BookmarksPrefs", "bookmark")
+        }
     }
 
     private fun startAlarm() {
-        AlarmObject.originLatLng = foregroundLocationHelper.userLatLng
-        if (AlarmObject.originLatLng == null) {
-            Toast.makeText(this, "Unable to get user location.", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (AlarmObject.destinationLatLng == null) {
-            Toast.makeText(this, "Unable to get destination coordinates.", Toast.LENGTH_SHORT).show()
-            return
-        }
+        AlarmObject.originLatLng = fgServiceHelper.userLatLng ?: return showToast("Unable to get user location.")
+        AlarmObject.destinationLatLng ?: return showToast("Unable to get destination location.")
 
         CoroutineScope(Dispatchers.Main).launch {
             val directionsHelper = DirectionsHelper()
@@ -186,44 +210,30 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
                 directionsHelper.fetchDirectionsData(urlString)
             }
 
-            if (response != null) {
-                val routePoints = directionsHelper.parseRoute(response)
-                if (routePoints != null) {
+            response?.let {
+                directionsHelper.parseRoute(it)?. let { routePoints ->
                     drawRoute(routePoints)
-                    binding.buttonMainAlarm.text = "Cancel Alarm"
-                    AlarmObject.status = AlarmObject.ON
-
-                    binding.fabMain.visibility = View.INVISIBLE
-                    binding.buttonMainSearchLocation.visibility = View.INVISIBLE
-                    binding.layoutMainSecondary.visibility = View.INVISIBLE
-                    makeHistoryItem()
-                } else {
-                    Toast.makeText(this@MainActivity, "Failed to parse directions", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                Toast.makeText(this@MainActivity, "Failed to fetch directions", Toast.LENGTH_SHORT).show()
-            }
+                    animateUpdateCameraBounds(routePoints)
+                    updateAlarmUI(true)
+                    saveItemAs("HistoryPrefs", "history")
+                } ?: showToast("Failed to parse directions")
+            } ?: showToast("Failed to fetch directions")
         }
     }
 
     private fun cancelAlarm() {
         AlarmObject.originLatLng = null
-        route?.remove()
-        binding.buttonMainAlarm.text = "Start Alarm"
-        AlarmObject.status = AlarmObject.OFF
-
-        binding.fabMain.visibility = View.VISIBLE
-        binding.buttonMainSearchLocation.visibility = View.VISIBLE
-        binding.layoutMainSecondary.visibility = View.VISIBLE
+        polylineRoute?.remove()
+        updateAlarmUI(false)
     }
 
-    private fun dismissAlarm() {
-        cancelAlarm()
-        binding.frameMainAlarmBanner.visibility = View.INVISIBLE
-
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-        mediaPlayer = null
+    private fun updateAlarmUI(isAlarmActive: Boolean) {
+        binding.buttonMainAlarm.text = if (isAlarmActive) "Cancel Alarm" else "Start Alarm"
+        AlarmObject.status = if (isAlarmActive) AlarmObject.ON else AlarmObject.OFF
+        val visibility = if (isAlarmActive) View.INVISIBLE else View.VISIBLE
+        binding.fabMain.visibility = visibility
+        binding.layoutMainSearchLocation.visibility = visibility
+        binding.layoutMainSecondary.visibility = visibility
     }
 
     fun showAlarm() {
@@ -231,11 +241,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         binding.frameMainAlarmBanner.visibility = View.VISIBLE
         AlarmObject.status = AlarmObject.RINGING
 
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-
+        resetMediaPlayer()
         val ringtoneUri: Uri = getSavedRingtoneUri() ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-
         mediaPlayer = MediaPlayer().apply {
             setDataSource(this@MainActivity, ringtoneUri)
             setAudioStreamType(AudioManager.STREAM_ALARM)
@@ -243,15 +250,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             prepare()
             start()
         }
+
+        shouldAnimateCamera = true
+    }
+
+    private fun dismissAlarm() {
+        cancelAlarm()
+        binding.frameMainAlarmBanner.visibility = View.INVISIBLE
+        resetMediaPlayer()
+        shouldAnimateCamera = false
     }
 
     private fun setDestination(destinationLatLng: LatLng) {
-        destinationMarker?.remove()
-        destinationMarker = null
-        mapCircle?.remove()
-        mapCircle = null
+        markerDestination?.remove()
+        markerDestination = null
+        circleRange?.remove()
+        circleRange = null
 
-        destinationMarker = map.addMarker(MarkerOptions().position(destinationLatLng))
+        markerDestination = map.addMarker(MarkerOptions().position(destinationLatLng))
         map.animateCamera(CameraUpdateFactory.newLatLngZoom(destinationLatLng,15.2f))
         if (AlarmObject.ringDistance != null) {
             val seekProgress = (AlarmObject.ringDistance!! - 50) / (2000 - 50) * 100
@@ -260,7 +276,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         } else {
             updateMapCircle(50.0)
         }
-        binding.buttonMainSearchLocation.text = AlarmObject.destinationName
+        binding.textMainSearchLocationPrimary.text = AlarmObject.destinationName
+        binding.textMainSearchLocationSecondary.text = AlarmObject.destinationAddress
+        binding.textMainAlarmName.text = AlarmObject.destinationName
         binding.textMainAlarmAddress.text = AlarmObject.destinationAddress
         binding.seekbarMainRingDistance.isEnabled = true
         binding.buttonMainAlarm.isEnabled = true
@@ -269,17 +287,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
     private fun updateMapCircle(radius: Double) {
         AlarmObject.ringDistance = radius
         val center = AlarmObject.destinationLatLng?: return
-        if (mapCircle == null) {
-            mapCircle = map.addCircle(
-                CircleOptions()
-                    .center(center)
-                    .radius(radius)
-                    .strokeWidth(1f)
-                    .fillColor(Color.argb(.2f,0f,0f,255f)))
-        } else {
-            mapCircle!!.radius = radius
+
+        if (circleRange != null) circleRange!!.radius = radius
+        else {
+            circleRange = map.addCircle(CircleOptions().
+            center(center).radius(radius).strokeWidth(1f).fillColor(Color.argb(0.2f,0f,0.4f,1f)))
         }
-        binding.textMainRingDistance.text = "Ring in: ${radius.toInt()}m"
+
+        if (radius > 999) binding.textMainRingDistance.text = "Ring alarm in: ${String.format("%.2f", radius / 1000)}km"
+        else binding.textMainRingDistance.text = "Ring alarm in: ${radius.toInt()}m"
     }
 
     private fun drawRoute(routePoints: List<LatLng>) {
@@ -289,59 +305,58 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
             width(10f)
             zIndex(50f)
         }
-        route = map.addPolyline(polylineOptions)
-        if (mapCircle != null && AlarmObject.ringDistance != null) {
+        polylineRoute = map.addPolyline(polylineOptions)
+        if (circleRange != null && AlarmObject.ringDistance != null) {
             updateMapCircle(AlarmObject.ringDistance!!)
         }
     }
 
-    private fun initializeLocationHelper() {
-        if (!::foregroundLocationHelper.isInitialized) {
-            foregroundLocationHelper = ForegroundLocationHelper(this, this, this)
+    private fun saveItemAs(name: String, key: String) {
+        alarmItem = AlarmItem(
+            AlarmObject.destinationID,
+            AlarmObject.destinationName,
+            AlarmObject.destinationAddress,
+            AlarmObject.destinationLatLng,
+            AlarmObject.originLatLng,
+            AlarmObject.ringDistance
+        )
+        val sharedPreferences = getSharedPreferences(name, MODE_PRIVATE)
+        val mutableSet = sharedPreferences.getStringSet(key, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        val jsonItem = Gson().toJson(alarmItem)
+
+        mutableSet.add(jsonItem)
+        sharedPreferences.edit().putStringSet(key, mutableSet).apply()
+        if (key == "bookmark") {
+            cancelAlarm()
+            bookmarksLauncher.launch(Intent(this, BookmarksActivity::class.java))
         }
-        foregroundLocationHelper.checkLocationPermission()
-        isFirstLaunch = false
     }
 
-    override fun onFirstLocationUpdated(location: LatLng) {
-        if (isFirstUpdate) {
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.2f))
-            isFirstUpdate = false
-        }
+    private fun animateUpdateCameraBounds(routePoints: List<LatLng>) {
+        if(polylineRoute == null) return
+
+        val boundsBuilder = LatLngBounds.builder()
+        routePoints.forEach { boundsBuilder.include(it) }
+
+        val bounds = boundsBuilder.build()
+        val padding = 240
+
+        map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
     }
 
-    override fun onShowAlarmDistanceToDestination(distance: Int) {
-        binding.textMainAlarmDistance.text = "${distance}m"
-    }
-
-    private fun setUpSearchLauncher() {
-        searchActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val intentData = result.data
-
-                val selectedPlace: PlacePredictionModel? = intentData?.getParcelableExtra("selected_place")
-                if (selectedPlace != null) {
-                    selectedPlace?.let {
-                        AlarmObject.destinationID = it.placeId
-                        AlarmObject.destinationName = it.primaryText
-                        AlarmObject.destinationAddress = it.secondaryText
-                        AlarmObject.destinationLatLng = it.latLng!!
-                        setDestination(AlarmObject.destinationLatLng!!)
-                    }
-                } else {
-                    val shouldUpdateMap = result.data?.getBooleanExtra("update_map", false) ?: false
-                    if (shouldUpdateMap && AlarmObject.destinationLatLng != null) {
-                        setDestination(AlarmObject.destinationLatLng!!) // Update map
-                    }
-                }
-            }
+    private fun pickRingtone() {
+        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Alarm Ringtone")
+            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, getSavedRingtoneUri())
         }
+        startActivityForResult(intent, requestCodeRingtone)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == REQUEST_CODE_RINGTONE && resultCode == RESULT_OK) {
+        if (requestCode == requestCodeRingtone && resultCode == RESULT_OK) {
             val ringtoneUri: Uri? = data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             if (ringtoneUri != null) { saveRingtoneUri(ringtoneUri) }
         }
@@ -358,62 +373,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, LocationUpdateList
         return uriString?.let { Uri.parse(it) }
     }
 
-    private fun makeHistoryItem() {
-        val newHistoryItem = HistoryItem(
-            AlarmObject.destinationID,
-            AlarmObject.destinationName,
-            AlarmObject.destinationAddress,
-            AlarmObject.destinationLatLng,
-            AlarmObject.originLatLng,
-            AlarmObject.ringDistance
-        )
-
-        saveHistoryItem(newHistoryItem)
+    private fun resetMediaPlayer() {
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
-    private fun saveHistoryItem(historyItem: HistoryItem) {
-        val sharedPreferences = getSharedPreferences("HistoryPrefs", MODE_PRIVATE)
-        val historyList = sharedPreferences.getStringSet("history", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-
-        val historyJson = Gson().toJson(historyItem)
-        historyList.add(historyJson)
-        sharedPreferences.edit().putStringSet("history", historyList).apply()
-    }
-
-    fun makeBookmark() {
-        val bookmark = BookmarksItem(
-            AlarmObject.destinationID,
-            AlarmObject.destinationName,
-            AlarmObject.destinationAddress,
-            AlarmObject.destinationLatLng,
-            AlarmObject.originLatLng,
-            AlarmObject.ringDistance
-        )
-
-        saveBookmark(bookmark)
-    }
-
-    private fun saveBookmark(bookmark: BookmarksItem) {
-        val sharedPreferences = getSharedPreferences("BookmarksPrefs", MODE_PRIVATE)
-        val bookmarksSet = sharedPreferences.getStringSet("bookmarks", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-
-        val bookmarkJson = Gson().toJson(bookmark)
-        bookmarksSet.add(bookmarkJson)
-        sharedPreferences.edit().putStringSet("bookmarks", bookmarksSet).apply()
-
-        cancelAlarm()
-
-        val intent = Intent(this, BookmarksActivity::class.java)
-        startActivity(intent)
-    }
-
-
-    // Handle back button to close drawer if it's open
-    override fun onBackPressed() {
-        if (binding.layoutMainDrawer.isDrawerOpen(GravityCompat.START)) {
-            binding.layoutMainDrawer.closeDrawer(GravityCompat.START)
-        } else {
-            super.onBackPressed()
+    override fun onLocationUpdate(location: LatLng) {
+        if (isFirstUpdate) {
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.2f))
+            isFirstUpdate = false
         }
+
+        if (shouldAnimateCamera) map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 16.2f))
+    }
+
+    override fun onShowAlarmDistanceToDestination(distance: Float) {
+        if (distance > 999) binding.textMainAlarmDistance.text = "${String.format("%.2f", distance / 1000)}km"
+        else binding.textMainAlarmDistance.text = "${distance.toInt()}m"
+    }
+
+    private fun showToast(string: String) {
+        Toast.makeText(this, string, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onBackPressed() {
+        if (binding.layoutMainDrawer.isDrawerOpen(GravityCompat.START)) binding.layoutMainDrawer.closeDrawer(GravityCompat.START) else super.onBackPressed()
     }
 }

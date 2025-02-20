@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Light Theme -->
+    <style name="Theme.App.Default" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#B4D4EE</item>
+        <item name="colorPrimaryVariant">#8BBCE5</item>
+        <item name="colorOnPrimary">#0D1321</item>
+        <item name="colorSecondary">#BEEDAA</item>
+        <item name="colorSecondaryVariant">#7EDB57</item>
+        <item name="colorOnSecondary">#0D1321</item>
+        <item name="colorSurface">#FAF9F6</item>
+        <item name="colorOnSurface">#0A0A0A</item>
+        <item name="menuActivityHeaderBG">#285943</item>
+        <item name="colorOnWarning">#DD0426</item>
+        <item name="alarmHeaderAccent">#8BBCE5</item>
+    </style>
+
+    <!-- Dark Theme -->
+    <style name="Theme.App.Dark" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#020202</item>
+        <item name="colorPrimaryVariant">#292929</item>
+        <item name="colorOnPrimary">#FAF9F6</item>
+        <item name="colorSecondary">#0CCE6B</item>
+        <item name="colorSecondaryVariant">#099A4F</item>
+        <item name="colorOnSecondary">#FAF9F6</item>
+        <item name="colorSurface">#0B1215</item>
+        <item name="colorOnSurface">#FAF9F6</item>
+        <item name="menuActivityHeaderBG">#0CCE6B</item>
+        <item name="colorOnWarning">#DD0426</item>
+        <item name="alarmHeaderAccent">#7EDB57</item>
+    </style>
+
+    <!-- Paper Theme -->
+    <style name="Theme.App.Paper" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#F8C963</item>
+        <item name="colorPrimaryVariant">#F6BB3C</item>
+        <item name="colorOnPrimary">#090B0C</item>
+        <item name="colorSecondary">#1AA875</item>
+        <item name="colorSecondaryVariant">#21D492</item>
+        <item name="colorOnSecondary">#090B0C</item>
+        <item name="colorSurface">#EBE3CD</item>
+        <item name="colorOnSurface">#090B0C</item>
+        <item name="menuActivityHeaderBG">#916953</item>
+        <item name="colorOnWarning">#DD0426</item>
+        <item name="alarmHeaderAccent">#F8C963</item>
+    </style>
+
+    <!-- Blue Theme -->
+    <style name="Theme.App.Blue" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#0D1B1E</item>
+        <item name="colorPrimaryVariant">#0077CC</item>
+        <item name="colorOnPrimary">#0597FF</item>
+        <item name="colorSecondary">#0D1B1E</item>
+        <item name="colorSecondaryVariant">#FF5600</item>
+        <item name="colorOnSecondary">#FF8126</item>
+        <item name="colorSurface">#0B1215</item>
+        <item name="colorOnSurface">#FFFFE9</item>
+        <item name="menuActivityHeaderBG">#0077CC</item>
+        <item name="colorOnWarning">#DD0426</item>
+        <item name="alarmHeaderAccent">#0077CC</item>
+    </style>
+
+</resources>

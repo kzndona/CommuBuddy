@@ -1,8 +1,8 @@
-package com.example.commubuddy.Bookmark
+package com.example.commubuddy
 
 import com.google.android.gms.maps.model.LatLng
 
-data class BookmarksItem(
+data class AlarmItem (
     var destinationID: String? = null,
     var destinationName: String? = null,
     var destinationAddress: String? = null,

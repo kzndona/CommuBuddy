@@ -34,17 +34,31 @@
                 android:paddingVertical="52dp"
                 android:orientation="vertical"
                 android:background="@drawable/container_main_alarm_header"
+                android:visibility="invisible"
                 tools:ignore="UselessParent">
     
                 <TextView
                     android:id="@+id/text_main_alarm_distance"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="4sp"
+                    android:paddingVertical="2sp"
                     android:text="2000m"
                     android:textSize="72sp"
                     android:textColor="@color/white"
                     android:fontFamily="@font/lato_black"
+                    android:layout_gravity="center"/>
+
+                <TextView
+                    android:id="@+id/text_main_alarm_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="4sp"
+                    android:text="Destination Name"
+                    android:textSize="14sp"
+                    android:textColor="@color/white"
+                    android:fontFamily="@font/lato_bold"
+                    android:textAllCaps="false"
+                    android:gravity="center"
                     android:layout_gravity="center"/>
 
                 <TextView
@@ -78,51 +92,77 @@
                 android:layout_marginVertical="8dp"
                 android:src="@android:drawable/ic_menu_sort_by_size"
                 app:fabSize="mini"
+                app:backgroundTint="?attr/colorSecondary"
                 android:contentDescription="Open Navigation Drawer"/>
 
-            <Button
-                android:id="@+id/button_main_search_location"
+            <LinearLayout
+                android:id="@+id/layout_main_search_location"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
+                android:layout_height="wrap_content"
                 android:layout_marginHorizontal="12dp"
-                android:text="Search Location"
-                android:textSize="16sp"
-                android:fontFamily="@font/lato_bold"
-                android:background="@drawable/button_main_primary"/>
+                android:paddingVertical="8dp"
+                android:elevation="2dp"
+                android:orientation="vertical"
+                android:background="@drawable/button_main_primary"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/text_main_search_location_primary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Search Location"
+                    android:textSize="16sp"
+                    android:textColor="?attr/colorOnPrimary"
+                    android:gravity="center"
+                    android:layout_gravity="center"/>
+
+                <TextView
+                    android:id="@+id/text_main_search_location_secondary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Please choose a destination"
+                    android:textSize="12sp"
+                    android:textColor="?attr/colorOnPrimary"
+                    android:maxLines="1"
+                    android:gravity="center"
+                    android:layout_gravity="center"/>
+
+            </LinearLayout>
     
             <LinearLayout
                 android:id="@+id/layout_main_secondary"
                 android:layout_width="match_parent"
-                android:layout_height="120dp"
+                android:layout_height="wrap_content"
                 android:layout_marginHorizontal="12dp"
                 android:layout_marginVertical="8dp"
-                android:paddingHorizontal="12dp"
-                android:paddingTop="12dp"
+                android:padding="12dp"
                 android:orientation="vertical"
                 android:background="@drawable/container_main_secondary">
 
                 <Button
                     android:id="@+id/button_main_ringtone_picker"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:text="Choose Ringtone"
-                    android:textSize="16sp"
-                    android:fontFamily="@font/lato_bold"
-                    android:background="@drawable/button_main_secondary"/>
+                    android:layout_height="44dp"
+                    app:backgroundTint="@null"
+                    android:background="@drawable/button_main_secondary"
+                    android:text="Change Ringtone"
+                    android:textColor="?attr/colorOnSecondary"
+                    android:textAllCaps="false"
+                    android:textSize="16sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="36dp"
-                    android:layout_marginTop="4dp">
+                    android:layout_marginTop="8dp">
 
                     <TextView
                         android:id="@+id/text_main_ring_distance"
-                        android:layout_width="132dp"
+                        android:layout_width="120dp"
                         android:layout_height="32dp"
-                        android:text="Ring in: 50m"
-                        android:textColor="@color/black"
-                        android:textSize="16sp"
-                        android:fontFamily="@font/lato_regular"
+                        android:text="Ring alarm in: 999m"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="13sp"
                         android:gravity="center"
                         android:layout_gravity="center"/>
 
@@ -130,7 +170,9 @@
                         android:id="@+id/seekbar_main_ring_distance"
                         android:layout_width="match_parent"
                         android:layout_height="32dp"
-                        android:layout_gravity="center"/>
+                        android:layout_gravity="center"
+                        android:progressBackgroundTint="?attr/colorSecondaryVariant"
+                        android:thumbTint="?attr/colorSecondaryVariant" />
 
                 </LinearLayout>
 
@@ -144,14 +186,16 @@
                 <Button
                     android:id="@+id/button_main_alarm"
                     android:layout_width="match_parent"
-                    android:layout_height="64dp"
+                    android:layout_height="52dp"
                     android:layout_marginHorizontal="16dp"
                     android:layout_marginTop="12dp"
                     android:layout_marginBottom="20dp"
                     android:text="Start Alarm"
+                    android:textColor="?attr/colorOnPrimary"
                     android:textSize="16sp"
-                    android:fontFamily="@font/lato_bold"
-                    android:background="@drawable/button_main_primary"/>
+                    app:backgroundTint="@null"
+                    android:background="@drawable/button_main_primary"
+                    android:enabled="false"/>
 
             </FrameLayout>
 
@@ -164,8 +208,10 @@
         android:id="@+id/navigationView"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
+        android:paddingTop="300dp"
+        app:itemTextAppearance="@color/black"
         android:layout_gravity="start"
-        android:background="@android:color/white"
+        android:background="?attr/colorSurface"
         app:menu="@menu/drawer_main_side_menu" />
 
 </androidx.drawerlayout.widget.DrawerLayout>

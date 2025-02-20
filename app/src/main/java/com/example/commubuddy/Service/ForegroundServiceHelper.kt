@@ -1,4 +1,4 @@
-package com.example.commubuddy.Location
+package com.example.commubuddy.Service
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -22,7 +22,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
 
-class ForegroundLocationHelper (
+class ForegroundServiceHelper (
     private val context: Context,
     private val activity: MainActivity,
     private val listener: LocationUpdateListener
@@ -69,7 +69,7 @@ class ForegroundLocationHelper (
                 for (location in locationResult.locations) {
                     userLatLng = LatLng(location.latitude, location.longitude)
 
-                    listener.onFirstLocationUpdated(userLatLng!!)
+                    listener.onLocationUpdate(userLatLng!!)
 
                     if (AlarmObject.status == AlarmObject.ON || AlarmObject.status == AlarmObject.RINGING) {
                         val results = FloatArray(1)
@@ -81,7 +81,7 @@ class ForegroundLocationHelper (
                             results
                         )
                         val distanceBetweenResult = results[0]
-                        listener.onShowAlarmDistanceToDestination(distanceBetweenResult.toInt())
+                        listener.onShowAlarmDistanceToDestination(distanceBetweenResult)
 
                         if (distanceBetweenResult <= AlarmObject.ringDistance!! && AlarmObject.status != AlarmObject.RINGING) {
                             activity.showAlarm()
